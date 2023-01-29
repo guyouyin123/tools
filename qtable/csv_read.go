@@ -3,7 +3,7 @@ package qtable
 import (
 	"bytes"
 	"io"
-	"tools/qcsv"
+	"github.com/guyouyin123/tools/qcsv"
 )
 
 type csvRead struct {
