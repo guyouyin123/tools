@@ -1,4 +1,4 @@
-package qmix_compute
+package qmixCompute
 
 import (
 	"fmt"

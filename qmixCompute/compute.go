@@ -1,4 +1,4 @@
-package qmix_compute
+package qmixCompute
 
 import calSymbol "github.com/FITLOSS/GoCalSymbol"
 
