@@ -4,6 +4,9 @@ import "time"
 
 // 获取当前时间前n个礼拜时间段--周天-周六
 func GetRecentWeekDates(n int) [][]string {
+	if n <= 0 {
+		return nil
+	}
 	// 获取当前时间
 	now := time.Now()
 	// 初始化结果切片
