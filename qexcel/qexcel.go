@@ -102,7 +102,7 @@ func WriteToXlsxV1(dataList []interface{}, sheetName string, savePath string, is
 /*
 写入xlsx
 支持合并单元格--v2兼容v1
-只支持一层嵌套
+只支持一层嵌套,支持指针和非指针结构
 */
 func WriteToXlsxV2(dataList []interface{}, sheetName string, savePath string, isSaveFile bool) (f *excelize.File, err error) {
 	//1.添加sheet
@@ -111,9 +111,17 @@ func WriteToXlsxV2(dataList []interface{}, sheetName string, savePath string, is
 	if err != nil {
 		return nil, err
 	}
-
 	//2.处理tag标签
-	vaType := reflect.ValueOf(dataList[0]).Type()
+	baseVa := reflect.ValueOf(dataList[0])
+	var vaType reflect.Type
+	if baseVa.Kind() == reflect.Ptr {
+		//指针类型
+		vaType = baseVa.Type().Elem()
+	} else {
+		//非指针
+		vaType = baseVa.Type()
+	}
+
 	titleCount := vaType.NumField()
 	tagMap := map[string]*Tag{}
 	mergeList := make([]string, 0)
@@ -172,7 +180,15 @@ func WriteToXlsxV2(dataList []interface{}, sheetName string, savePath string, is
 		maxElemSliceCount := 0
 		lastRow := 0
 		data := dataList[i]
-		va := reflect.ValueOf(data)
+
+		var va reflect.Value
+		baseDataVa := reflect.ValueOf(data)
+		if baseDataVa.Kind() == reflect.Ptr {
+			va = baseDataVa.Elem()
+		} else {
+			va = baseDataVa
+		}
+
 		vaTyp := va.Type()
 		titleCount2 := va.NumField()
 		isz := false

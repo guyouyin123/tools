@@ -112,3 +112,31 @@ func TestWriteToXlsxV2(t *testing.T) {
 	}
 	fmt.Println(file)
 }
+
+func TestDemo(t *testing.T) {
+	type NameListExportResp struct {
+		NameListId int64  `excel:"title=会员ID;width=20;column=A"` //会员ID
+		IntvDt     string `excel:"title=面试时间;width=20;column=B"` //面试时间
+		EntryDt    string `excel:"title=入职时间;width=20;column=C"` //入职时间
+		LeaveDt    string `excel:"title=离职时间;width=20;column=D"` //离职时间
+		IntvSts    string `excel:"title=面试状态;width=20;column=E"` //面试状态 0 未处理， 1未面试 2 面试通过 3 面试不通过 4 放弃
+		WorkSts    string `excel:"title=工作状态;width=20;column=F"` //工作状态，1 在职 2 离职 3 转正 4 未处理 5 未知 6 自离
+	}
+
+	n := &NameListExportResp{
+		NameListId: 123,
+		IntvDt:     "2024-01-01",
+		EntryDt:    "2024-01-01",
+		LeaveDt:    "0001-01-01",
+		IntvSts:    "未处理",
+		WorkSts:    "在职",
+	}
+	list := []interface{}{}
+	list = append(list, n)
+	file, err := WriteToXlsxV2(list, "Sheet1", "./test2.xlsx", true)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println(file)
+}
