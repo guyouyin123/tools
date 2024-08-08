@@ -12,8 +12,10 @@ func TestMixCompute(t *testing.T) {
 		'c': float64(10),
 	})
 	fmt.Println(result)
-	a := fmt.Sprintf("%.2f", float64(10))
-	b := fmt.Sprintf("%.2f", 10.000001)
-	fmt.Println(a)
-	fmt.Println(b)
+
+	result2 := MixCompute("a/b", map[rune]float64{
+		'a': float64(10),
+		'b': 3,
+	})
+	fmt.Println(result2)
 }

@@ -1,8 +1,8 @@
 package qapp
 
 import (
-	"encoding/json"
 	"fmt"
+	jsoniter "github.com/json-iterator/go"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -57,7 +57,7 @@ start:
 		return nil, err
 	}
 	info := &ItunesApple{}
-	_ = json.Unmarshal(body, &info)
+	_ = jsoniter.Unmarshal(body, &info)
 	if len(info.Results) == 0 {
 		if boo <= 1 {
 			cn = "cn"

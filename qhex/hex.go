@@ -2,7 +2,7 @@ package qhex
 
 import (
 	"encoding/base64"
-	"encoding/json"
+	jsoniter "github.com/json-iterator/go"
 	"time"
 )
 
@@ -28,7 +28,7 @@ func PageTokenEncode(page, pageSize int) string {
 		PageSize:  pageSize,
 		Timestamp: time.Now().Unix(),
 	}
-	jsonStr, _ := json.Marshal(p)
+	jsonStr, _ := jsoniter.Marshal(p)
 	s := Base64Encode(string(jsonStr))
 	return s
 }
@@ -43,7 +43,7 @@ func PageTokenDecode(pageToken string) (int, int, int) {
 		return 0, 0, 20
 	}
 	var p PageToken
-	_ = json.Unmarshal([]byte(s), &p)
+	_ = jsoniter.Unmarshal([]byte(s), &p)
 
 	offset := (p.Page - 1) * p.PageSize
 	return offset, p.Page, p.PageSize

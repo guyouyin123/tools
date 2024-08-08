@@ -17,6 +17,7 @@ require (
 require (
 	git.woda.ink/third-package/satori/go.uuid v0.0.0-20181206080624-748097c11e35 // indirect
 	git.woda.ink/woda/pb v0.0.6 // indirect
+	github.com/FITLOSS/GoCalSymbol v0.1.1 // indirect
 	github.com/Shopify/sarama v1.19.0 // indirect
 	github.com/apache/thrift v0.13.0 // indirect
 	github.com/armon/go-metrics v0.3.10 // indirect
