@@ -20,7 +20,7 @@ type Tag struct {
 写入xlsx
 不支持合并单元格
 */
-func WriteToXlsxV1(dataList []interface{}, sheetName string, savePath string, isSaveFile bool) (file *xlsx.File, err error) {
+func XlsxWriteV1(dataList []interface{}, sheetName string, savePath string, isSaveFile bool) (file *xlsx.File, err error) {
 	//1.添加sheet
 	file = xlsx.NewFile()
 	sheet, err := file.AddSheet(sheetName)
@@ -102,9 +102,9 @@ func WriteToXlsxV1(dataList []interface{}, sheetName string, savePath string, is
 /*
 写入xlsx
 支持合并单元格--v2兼容v1
-只支持一层嵌套,支持指针和非指针结构
+只支持一层嵌套
 */
-func WriteToXlsxV2(dataList []interface{}, sheetName string, savePath string, isSaveFile bool) (f *excelize.File, err error) {
+func XlsxWriteV2(dataList []interface{}, sheetName string, savePath string, isSaveFile bool) (f *excelize.File, err error) {
 	//1.添加sheet
 	f = excelize.NewFile()
 	f.SetSheetName(sheetName, sheetName)
