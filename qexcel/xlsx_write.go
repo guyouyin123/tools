@@ -197,7 +197,14 @@ func XlsxWriteV2(dataList []interface{}, sheetName string, savePath string, isSa
 			if field.Type.Kind() == reflect.Slice {
 				//子结构体数组
 				lastRow = row
-				elemSliceObj := reflect.ValueOf(data).Field(j)
+				elemSliceObj := reflect.Value{}
+				if reflect.ValueOf(data).Kind() == reflect.Ptr {
+					//子结构为指针
+					elemSliceObj = reflect.ValueOf(data).Elem().Field(j)
+				} else {
+					//子结构为非指针
+					elemSliceObj = reflect.ValueOf(data).Field(j)
+				}
 				elemSliceCount := elemSliceObj.Len()
 				if elemSliceCount > maxElemSliceCount {
 					maxElemSliceCount = elemSliceCount

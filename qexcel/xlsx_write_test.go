@@ -133,3 +133,101 @@ func TestExportCsv(t *testing.T) {
 	temp.WriteString("\xEF\xBB\xBF") // 写入UTF-8 BOM
 	temp.Write(data)
 }
+
+func TestWriteToXlsxV2_1(t *testing.T) {
+	type ZXProfitExportData struct {
+		RelatedMo              string `excel:"title=所属月份;width=20;column=B"`
+		EntShortName           string `excel:"title=企业名称;width=20;column=C"`
+		EntPayDay              string `excel:"title=发薪日;width=20;column=D"`
+		EntSettleZone          string `excel:"title=发薪周期;width=20;column=E"`
+		TrgtSpName             string `excel:"title=劳务名称;width=20;column=F"`
+		SalaryPayer            int64  `excel:"title=月薪是否劳务打款;width=20;column=G"`
+		ImportX                string `excel:"title=合计X（导入）(元);width=20;column=H"`
+		EndX                   string `excel:"title=合计X（最终）(元);width=20;column=I"`
+		AdjustX                string `excel:"title=X调整金额(元);width=20;column=J"`
+		WeeklyPaidAmt          string `excel:"title=已发周薪(元);width=20;column=K"`
+		RemainingSalary        string `excel:"title=剩余月薪(元);width=20;column=L"`
+		ReturnFee              string `excel:"title=补贴金额（元）;width=20;column=M"`
+		PaidTax                string `excel:"title=补贴服务费（元）;width=20;column=N"`
+		ReturnFeeAfterTax      string `excel:"title=实发补贴（元）;width=20;column=O"`
+		DayReturnAmount        string `excel:"title=（新）会员补贴（元）;width=20;column=P"`
+		LaborY                 string `excel:"title=劳务Y（元）;width=20;column=Q"`
+		SumPay                 string `excel:"title=合计支出（Y）（元）;width=20;column=R"`
+		AdjustY                string `excel:"title=Y调整金额;width=20;column=R"`
+		XProfit                string `excel:"title=（X-Y）（元）;width=20;column=S"`
+		XProfitRatio           string `excel:"title=我打分成比例;width=20;column=T"`
+		SumProfit              string `excel:"title=我打分成（元）;width=20;column=U"`
+		TolWdProfit            string `excel:"title=合计我打分成（元）;width=20;column=V"`
+		TolLaborProfit         string `excel:"title=合计劳务分成（元）;width=20;column=W"`
+		DispatchOrderAmt       string `excel:"title=调单服务费（元）;width=20;column=X"`
+		AdjustDispatchOrderAmt string `excel:"title=调单服务费调整（元）;width=20;column=Y"`
+		XArrears               string `excel:"title=劳务欠款（元）;width=20;column=Z"`
+		BossArrears            string `excel:"title=大佬欠款;width=20;column=AA"`
+		XPaidBIllAmt           string `excel:"title=劳务到账（元）;width=20;column=AB"`
+		IsCloseY               string `excel:"title=是否Y关账;width=20;column=AC"`
+		IsClose                string `excel:"title=是否关账;width=20;column=AD"`
+		InvoiceTrgtCn          string `excel:"title=开票单位名称;width=20;column=AE"`
+		LastRunTm              string `excel:"title=最后计算时间;width=30;column=AF"`
+	}
+
+	type ZXProfitExport struct {
+		BossId int64 `excel:"title=大佬;width=20;column=A"`
+		Data   []*ZXProfitExportData
+	}
+	a := &ZXProfitExportData{
+		RelatedMo:              "1",
+		EntShortName:           "1",
+		EntPayDay:              "1",
+		EntSettleZone:          "1",
+		TrgtSpName:             "",
+		SalaryPayer:            0,
+		ImportX:                "",
+		EndX:                   "",
+		AdjustX:                "",
+		WeeklyPaidAmt:          "",
+		RemainingSalary:        "",
+		ReturnFee:              "",
+		PaidTax:                "",
+		ReturnFeeAfterTax:      "",
+		DayReturnAmount:        "",
+		LaborY:                 "",
+		SumPay:                 "",
+		AdjustY:                "",
+		XProfit:                "",
+		XProfitRatio:           "",
+		SumProfit:              "",
+		TolWdProfit:            "",
+		TolLaborProfit:         "",
+		DispatchOrderAmt:       "",
+		AdjustDispatchOrderAmt: "",
+		XArrears:               "",
+		BossArrears:            "",
+		XPaidBIllAmt:           "",
+		IsCloseY:               "",
+		IsClose:                "",
+		InvoiceTrgtCn:          "",
+		LastRunTm:              "",
+	}
+	aList := make([]*ZXProfitExportData, 0)
+	aList = append(aList, a)
+	aList = append(aList, a)
+
+	b := &ZXProfitExport{
+		BossId: 100,
+		Data:   aList,
+	}
+	exportList := make([]*ZXProfitExport, 0, 10)
+	exportList = append(exportList, b)
+
+	list := make([]interface{}, 0)
+	for _, v := range exportList {
+		list = append(list, v)
+	}
+	sheetName := "Sheet1"
+	_, err := XlsxWriteV2(list, sheetName, "./test2.xlsx", true)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+}
