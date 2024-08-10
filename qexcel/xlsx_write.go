@@ -17,7 +17,7 @@ type Tag struct {
 }
 
 /*
-写入xlsx
+XlsxWriteV1 写入xlsx
 不支持合并单元格
 */
 func XlsxWriteV1(dataList []interface{}, sheetName string, savePath string, isSaveFile bool) (file *xlsx.File, err error) {
@@ -100,9 +100,10 @@ func XlsxWriteV1(dataList []interface{}, sheetName string, savePath string, isSa
 }
 
 /*
-写入xlsx
+XlsxWriteV2 写入xlsx
 支持合并单元格--v2兼容v1
 只支持一层嵌套
+结构体类型支持指针和非指针
 */
 func XlsxWriteV2(dataList []interface{}, sheetName string, savePath string, isSaveFile bool) (f *excelize.File, err error) {
 	//1.添加sheet
@@ -254,14 +255,14 @@ func XlsxWriteV2(dataList []interface{}, sheetName string, savePath string, isSa
 	}
 
 	//5.增加样式--左右上下居中
-	style, err := f.NewStyle(`{"alignment":{"horizontal":"center","vertical":"center"}}`)
+	style, err := f.NewStyle(`{"alignment":{"horizontal":"center","vertical":"center"},"font":{"color":"#FF0000"}}`)
 	if err != nil {
 		return nil, err
 	}
-	// 设置第一个sheet页的A到Z的单元格的样式
-	for col := 'A'; col <= 'Z'; col++ {
+	// 设置单元格的样式
+	for _, v := range tagMap {
 		for i := 1; i <= row; i++ {
-			cell := string(col) + fmt.Sprintf("%d", i)
+			cell := v.Column + fmt.Sprintf("%d", i)
 			f.SetCellStyle(sheetName, cell, cell, style)
 		}
 	}

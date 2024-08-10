@@ -206,7 +206,7 @@ func TestWriteToXlsxV2_1(t *testing.T) {
 		IsCloseY:               "",
 		IsClose:                "",
 		InvoiceTrgtCn:          "",
-		LastRunTm:              "",
+		LastRunTm:              "xxxxxx",
 	}
 	aList := make([]*ZXProfitExportData, 0)
 	aList = append(aList, a)
