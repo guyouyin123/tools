@@ -255,7 +255,8 @@ func XlsxWriteV2(dataList []interface{}, sheetName string, savePath string, isSa
 	}
 
 	//5.增加样式--左右上下居中
-	style, err := f.NewStyle(`{"alignment":{"horizontal":"center","vertical":"center"},"font":{"color":"#FF0000"}}`)
+	//style, err := f.NewStyle(`{"alignment":{"horizontal":"center","vertical":"center"},"font":{"color":"#FF0000"}}`)
+	style, err := f.NewStyle(`{"alignment":{"horizontal":"center","vertical":"center"}}`)
 	if err != nil {
 		return nil, err
 	}

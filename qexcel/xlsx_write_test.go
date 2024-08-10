@@ -205,7 +205,7 @@ func TestWriteToXlsxV2_1(t *testing.T) {
 		XPaidBIllAmt:           "",
 		IsCloseY:               "",
 		IsClose:                "",
-		InvoiceTrgtCn:          "",
+		InvoiceTrgtCn:          "哈哈",
 		LastRunTm:              "xxxxxx",
 	}
 	aList := make([]*ZXProfitExportData, 0)
