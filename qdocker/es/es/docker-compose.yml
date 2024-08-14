@@ -1,0 +1,17 @@
+version: '3'
+services:
+  prometheus:
+    container_name: elasticsearch
+    image: elasticsearch:7.17.22
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    restart: unless-stopped
+#    volumes:
+#      - /es/esData/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml \
+#      - /es/esData/data:/usr/share/elasticsearch/data \
+#      - /es/esData/plugins:/usr/share/elasticsearch/plugins \
+#      - /es/esData/es/logs:/usr/share/elasticsearch/logs \
+    environment:
+      discovery.type: "single-node"
+      ES_JAVA_OPTS: "-Xms64m -Xmx128m"

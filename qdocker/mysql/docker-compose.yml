@@ -1,0 +1,13 @@
+version: '3'
+services:
+  db:
+#    image: mysql:5.7
+    image: mysql/mysql-server:latest
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_DATABASE: zxx
+    ports:
+      - "3306:3306"
+#    volumes:
+#      - /Users/jeff/mysql_data:/var/lib/mysql

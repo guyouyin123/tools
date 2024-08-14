@@ -1,0 +1,11 @@
+version: '3'
+services:
+  zookeeper:
+    image: zookeeper:3.8
+    restart: always
+    ports:
+      - "2181:2181"
+    volumes:
+      - /docker-compose/redis/data:/data
+    environment:
+      ZOO_MY_ID: 1

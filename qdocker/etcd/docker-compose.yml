@@ -1,0 +1,21 @@
+version: "3.0"
+services:
+  etcd1:
+    image: bitnami/etcd:3.5
+    container_name: etcd1
+    restart: always
+    ports:
+      - "2379:2379"
+      - "2380:2380"
+    environment:
+      - ALLOW_NONE_AUTHENTICATION=yes #示例中我们不设置密码
+      - ETCD_NAME=etcd1 #节点自己的名字
+      - ETCD_ADVERTISE_CLIENT_URLS=http://127.0.0.1:2379  #告知集群自己的客户端地址
+      - ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379 #设置监听客户端通讯的URL列表
+      - ETCD_INITIAL_ADVERTISE_PEER_URLS=http://127.0.0.1:2380 #告知集群自己集群通讯地址
+      - ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380 #用于监听伙伴通讯的URL列表
+      - ETCD_INITIAL_CLUSTER_TOKEN=etcd-cluster #etcd 集群的初始化集群记号
+      - ETCD_INITIAL_CLUSTER=etcd1=http://127.0.0.1:2380
+      - ETCD_INITIAL_CLUSTER_STATE=new #初始化集群状态
+#    volumes:
+#      - /docker-compose/etcd/data:/bitnami/etcd/data

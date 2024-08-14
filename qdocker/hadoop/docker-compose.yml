@@ -1,0 +1,75 @@
+version: '3'
+services:
+  namenode:
+    image: sequenceiq/hadoop-docker:2.7.1
+    container_name: namenode
+    hostname: namenode
+    ports:
+      - "50070:50070"
+      - "50470:50470"
+      - "9000:9000"
+    volumes:
+      - ~/hadoop:/opt/hadoop
+      - ~/hadoop-data/namenode:/hadoop/dfs/name
+      - ~/hadoop-data/datanode:/hadoop/dfs/data
+    entrypoint:
+      - /etc/bootstrap.sh
+      - -namenode
+  datanode:
+    image: sequenceiq/hadoop-docker:2.7.1
+    container_name: datanode
+    hostname: datanode
+    links:
+      - namenode
+    volumes:
+      - ~/hadoop:/opt/hadoop
+      - ~/hadoop-data/datanode:/hadoop/dfs/data
+    entrypoint:
+      - /etc/bootstrap.sh
+      - -datanode
+  resourcemanager:
+    image: sequenceiq/hadoop-docker:2.7.1
+    container_name: resourcemanager
+    hostname: resourcemanager
+    links:
+      - namenode
+      - datanode
+      - nodemanager
+      - historyserver
+    ports:
+      - "8088:8088"
+      - "50030:50030"
+    entrypoint:
+      - /etc/bootstrap.sh
+      - -resourcemanager
+  nodemanager:
+    image: sequenceiq/hadoop-docker:2.7.1
+    container_name: nodemanager
+    hostname: nodemanager
+    links:
+      - namenode
+      - datanode
+      - resourcemanager
+      - historyserver
+    volumes:
+      - ~/hadoop:/opt/hadoop
+    entrypoint:
+      - /etc/bootstrap.sh
+      - -nodemanager
+  historyserver:
+    image: sequenceiq/hadoop-docker:2.7.1
+    container_name: historyserver
+    hostname: historyserver
+    links:
+      - namenode
+      - datanode
+      - resourcemanager
+      - nodemanager
+    ports:
+      - "19888:19888"
+    volumes:
+      - ~/hadoop:/opt/hadoop
+      - ~/hadoop-data/historyserver:/hadoop/yarn/timeline
+    entrypoint:
+      - /etc/bootstrap.sh
+      - -historyserver
