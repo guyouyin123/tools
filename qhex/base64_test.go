@@ -35,3 +35,8 @@ func TestAes2(t *testing.T) {
 
 	fmt.Println("Ciphertext (hex):", hex.EncodeToString(ciphertext))
 }
+
+func TestMD5(t *testing.T) {
+	a := MD52("123456", "aa")
+	fmt.Println(a)
+}
