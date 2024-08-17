@@ -39,4 +39,11 @@ func TestAes2(t *testing.T) {
 func TestMD5(t *testing.T) {
 	a := MD52("123456", "aa")
 	fmt.Println(a)
+
+	b := SHA1("123456", "aa")
+	fmt.Println(b)
+
+	c := SHA256("123456", "aa")
+	fmt.Println(c)
+
 }
