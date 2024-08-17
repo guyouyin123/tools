@@ -1,4 +1,4 @@
-package qhex
+package sha
 
 import (
 	"crypto/sha1"

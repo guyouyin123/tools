@@ -1,4 +1,4 @@
-package qhex
+package base64
 
 import (
 	"encoding/base64"

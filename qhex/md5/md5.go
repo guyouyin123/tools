@@ -1,4 +1,4 @@
-package qhex
+package md5
 
 import (
 	"crypto/md5"
@@ -25,7 +25,7 @@ func MD5(str, yan string) string {
 	cipherStr := h.Sum(nil)
 	return hex.EncodeToString(cipherStr)
 }
-func MD52(str, yan string) string {
+func MD5Sum(str, yan string) string {
 	/*
 		一次性计算给定数据 data 的 MD5 值,不需要手动维护中间状态
 	*/
