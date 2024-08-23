@@ -3,23 +3,24 @@ package aes
 import (
 	"crypto/aes"
 	"errors"
+	"github.com/guyouyin123/tools/qhex/conf"
 	"strconv"
 )
 
 type CipherAES struct {
-	Cipher
+	conf.Cipher
 }
 
 const BlockSize = 16
 
-func NewAESCipher(key, iv []byte, groupMode int, fillMode FillMode, decodeType int) (*CipherAES, error) {
+func NewAESCipher(key, iv []byte, groupMode int, fillMode conf.FillMode, decodeType int) (*CipherAES, error) {
 	if len(iv) != BlockSize {
 		return nil, errors.New("IV length must equal block size")
 	}
 	if len(key) != 16 && len(key) != 24 && len(key) != 32 {
 		return nil, errors.New("crypto/aes: invalid key size " + strconv.Itoa(len(key)))
 	}
-	return &CipherAES{Cipher{
+	return &CipherAES{conf.Cipher{
 		GroupMode:  groupMode,
 		FillMode:   fillMode,
 		DecodeType: decodeType,
@@ -40,7 +41,7 @@ func (c *CipherAES) AESEncrypt(plainText []byte) (cipherText string, err error) 
 		err = errors.New("unsupported content to be encrypted")
 		return
 	}
-	c.Output = make(CipherText, len(plainData))
+	c.Output = make(conf.CipherText, len(plainData))
 	if err = c.Encrypt(block, plainData); err != nil {
 		return
 	}
@@ -66,7 +67,7 @@ func (c *CipherAES) AESDecrypt(cipherText string) (plainText string, err error) 
 	}
 	plainData, err := c.UnFill(c.Output)
 	if err != nil {
-		return "", handleError(err)
+		return "", conf.HandleError(err)
 	}
 	return string(plainData), nil
 }

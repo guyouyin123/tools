@@ -3,15 +3,16 @@ package des
 import (
 	"crypto/des"
 	"errors"
+	"github.com/guyouyin123/tools/qhex/conf"
 )
 
 type CipherDES struct {
-	Cipher
+	conf.Cipher
 }
 
-func NewDESCipher(key, iv []byte, groupMode int, fillMode FillMode, decodeType int) *CipherDES {
+func NewDESCipher(key, iv []byte, groupMode int, fillMode conf.FillMode, decodeType int) *CipherDES {
 	return &CipherDES{
-		Cipher{
+		conf.Cipher{
 			GroupMode:  groupMode,
 			FillMode:   fillMode,
 			DecodeType: decodeType,
@@ -51,7 +52,7 @@ func (c *CipherDES) DESDecrypt(cipherText string) (plainText string, err error) 
 	}
 	plainData, err := c.UnFill(c.Output)
 	if err != nil {
-		return "", handleError(err)
+		return "", conf.HandleError(err)
 	}
 	return string(plainData), nil
 }

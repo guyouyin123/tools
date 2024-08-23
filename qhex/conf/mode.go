@@ -1,4 +1,4 @@
-package aes
+package conf
 
 import "bytes"
 
@@ -20,19 +20,19 @@ const (
 
 // The blockSize argument should be 16, 24, or 32.
 // Corresponding AES-128, AES-192, or AES-256.
-func (fm FillMode) pkcs7Padding(plainText []byte, blockSize int) []byte {
+func (fm FillMode) Pkcs7Padding(plainText []byte, blockSize int) []byte {
 	paddingSize := blockSize - len(plainText)%blockSize
 	paddingText := bytes.Repeat([]byte{byte(paddingSize)}, paddingSize)
 	return append(plainText, paddingText...)
 }
 
-func (fm FillMode) unPkcs7Padding(plainText []byte) []byte {
+func (fm FillMode) UnPkcs7Padding(plainText []byte) []byte {
 	length := len(plainText)
 	number := int(plainText[length-1])
 	return plainText[:length-number]
 }
 
-func (fm FillMode) zeroPadding(plainText []byte, blockSize int) []byte {
+func (fm FillMode) ZeroPadding(plainText []byte, blockSize int) []byte {
 	if plainText[len(plainText)-1] == 0 {
 		return nil
 	}
@@ -41,7 +41,7 @@ func (fm FillMode) zeroPadding(plainText []byte, blockSize int) []byte {
 	return append(plainText, paddingText...)
 }
 
-func (fm FillMode) unZeroPadding(plainText []byte) []byte {
+func (fm FillMode) UnZeroPadding(plainText []byte) []byte {
 	length := len(plainText)
 	count := 1
 	for i := length - 1; i > 0; i-- {
@@ -53,7 +53,7 @@ func (fm FillMode) unZeroPadding(plainText []byte) []byte {
 }
 
 // PKCS5Padding填充模式
-func (fm FillMode) pkcs5Padding(plainText []byte, blockSize int) []byte {
+func (fm FillMode) Pkcs5Padding(plainText []byte, blockSize int) []byte {
 	padding := blockSize - (len(plainText) % blockSize)
 	padText := make([]byte, len(plainText)+padding)
 	copy(padText, plainText)
@@ -64,7 +64,7 @@ func (fm FillMode) pkcs5Padding(plainText []byte, blockSize int) []byte {
 }
 
 // PKCS5Padding去除填充模式
-func (fm FillMode) unPkcs5Padding(plainText []byte) []byte {
+func (fm FillMode) UnPkcs5Padding(plainText []byte) []byte {
 	length := len(plainText)
 	unpadding := int(plainText[length-1])
 	return plainText[:length-unpadding]

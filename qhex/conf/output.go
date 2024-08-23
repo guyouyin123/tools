@@ -1,4 +1,4 @@
-package aes
+package conf
 
 import (
 	"encoding/base64"
@@ -12,18 +12,18 @@ const (
 	PrintBase64
 )
 
-func (ct CipherText) hexEncode() string {
+func (ct CipherText) HexEncode() string {
 	return hex.EncodeToString(ct)
 }
 
-func (ct CipherText) base64Encode() string {
+func (ct CipherText) Base64Encode() string {
 	return base64.StdEncoding.EncodeToString(ct)
 }
 
-func hexDecode(cipherText string) ([]byte, error) {
+func HexDecode(cipherText string) ([]byte, error) {
 	return hex.DecodeString(cipherText)
 }
 
-func base64Decode(cipherText string) ([]byte, error) {
+func Base64Decode(cipherText string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(cipherText)
 }

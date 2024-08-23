@@ -1,4 +1,4 @@
-package aes
+package conf
 
 import (
 	"crypto/cipher"
@@ -59,17 +59,17 @@ func (c *Cipher) Decrypt(block cipher.Block, cipherData []byte) (err error) {
 // default print format is base64
 func (c *Cipher) Encode() string {
 	if c.DecodeType == PrintHex {
-		return c.Output.hexEncode()
+		return c.Output.HexEncode()
 	} else {
-		return c.Output.base64Encode()
+		return c.Output.Base64Encode()
 	}
 }
 
 func (c *Cipher) Decode(cipherText string) ([]byte, error) {
 	if c.DecodeType == PrintBase64 {
-		return base64Decode(cipherText)
+		return Base64Decode(cipherText)
 	} else if c.DecodeType == PrintHex {
-		return hexDecode(cipherText)
+		return HexDecode(cipherText)
 	} else {
 		return nil, errors.New("unsupported print type")
 	}
@@ -79,11 +79,11 @@ func (c *Cipher) Fill(plainText []byte, blockSize int) []byte {
 	//填充模式
 	switch c.FillMode {
 	case PkcsZero:
-		return c.FillMode.zeroPadding(plainText, blockSize)
+		return c.FillMode.ZeroPadding(plainText, blockSize)
 	case Pkcs5:
-		return c.FillMode.pkcs5Padding(plainText, blockSize)
+		return c.FillMode.Pkcs5Padding(plainText, blockSize)
 	case Pkcs7:
-		return c.FillMode.pkcs7Padding(plainText, blockSize)
+		return c.FillMode.Pkcs7Padding(plainText, blockSize)
 	default:
 		return nil
 	}
@@ -102,11 +102,11 @@ func (c *Cipher) UnFill(plainText []byte) (data []byte, err error) {
 
 	switch c.FillMode {
 	case PkcsZero:
-		return c.FillMode.unZeroPadding(plainText), nil
+		return c.FillMode.UnZeroPadding(plainText), nil
 	case Pkcs5:
-		return c.FillMode.unPkcs5Padding(plainText), nil
+		return c.FillMode.UnPkcs5Padding(plainText), nil
 	case Pkcs7:
-		return c.FillMode.unPkcs7Padding(plainText), nil
+		return c.FillMode.UnPkcs7Padding(plainText), nil
 
 	default:
 		return nil, errors.New("unsupported fill mode")
@@ -160,7 +160,7 @@ func (c *Cipher) NewCFBEncrypter(block cipher.Block, plaintext []byte) {
 
 const runtimeErr = "runtime error:"
 
-func handleError(err error) error {
+func HandleError(err error) error {
 	if strings.HasPrefix(err.Error(), runtimeErr) {
 		return errors.New("encrypted and decrypted passwords are inconsistent")
 	}
