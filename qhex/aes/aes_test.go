@@ -9,8 +9,8 @@ func TestCipherAES_AESEncrypt(t *testing.T) {
 	// aes decryption
 	key := []byte("123456789abcdefg") //密码
 	iv := []byte("0123456789abcdef")  //偏移量
-	model := CBCMode                  //模式
-	pkcs := Pkcs7                     //填充
+	model := CTRMode                  //模式
+	pkcs := Pkcs5                     //填充
 	out := PrintHex                   //输出
 	cipher, err := NewAESCipher(key, iv, model, pkcs, out)
 	if err != nil {

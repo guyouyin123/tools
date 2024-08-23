@@ -1,4 +1,4 @@
-package aes
+package des
 
 import (
 	"crypto/cipher"
