@@ -33,7 +33,6 @@ func HandleConn(conn net.Conn) {
 			return
 		}
 
-		//把数据转换为大写，再给用户发送
 		sendAck := []byte("ack")
 		n, err = conn.Write(sendAck)
 		if err != nil {

@@ -12,9 +12,12 @@ import (
 )
 
 // ref: https://www.cnblogs.com/jeffid/articles/16701279.html
+// ref: https://gorm.io/gen/index.html
 // 更新会覆盖原有文件，所以通过 g.GenerateModel("oss", fieldOpts...) 指定需要更新的表，不要全部覆盖
 
 func main() {
+	//本项目需要用到的表名配置这里，避免无用的表多余加载。
+	tableNames := TableNames
 	cfg := gen.Config{
 		OutPath: "../dal",
 		//OutPath: "./pkg/gormInit/dal",
@@ -37,8 +40,12 @@ func main() {
 
 	// 处理表名
 	cfg.WithTableNameStrategy(func(tableName string) (targetTableName string) {
-		//这里可以处理忽略的表
-		return tableName
+		//指定生成需要用到的表
+		boo, ok := tableNames[tableName]
+		if ok && boo {
+			return tableName
+		}
+		return ""
 	})
 
 	// 处理 model名
@@ -62,12 +69,8 @@ func main() {
 	cfg.WithJSONTagNameStrategy(ToUpperCamelCase)
 
 	g := gen.NewGenerator(cfg)
-	ip := "127.0.0.1"
-	port := 3306
-	username := "root"
-	password := "123456"
-	dbname := "test"
-	dbUrl := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=UTC", username, password, ip, port, dbname)
+
+	dbUrl := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=UTC", dbConf.UserName, dbConf.PassWord, dbConf.IP, dbConf.Port, dbConf.DBName)
 	gormdb, _ := gorm.Open(mysql.Open(dbUrl))
 	g.UseDB(gormdb) // reuse your gorm db
 
@@ -115,8 +118,11 @@ func main() {
 
 	// 指定特定的表名
 	//models := []interface{}{
-	//	g.GenerateModel("table1", fieldOpts...),
-	//	g.GenerateModel("table2", fieldOpts...),
+	//	g.GenerateModel("workspace_subscribe_log", fieldOpts...),
+	//	g.GenerateModel("workspace_bill_log", fieldOpts...),
+	//	g.GenerateModel("workspace_version", fieldOpts...),
+	//	g.GenerateModel("storage_usage", fieldOpts...),
+	//	g.GenerateModel("inbox", fieldOpts...),
 	//}
 
 	// 创建模型的方法,生成文件在 query 目录; 先创建结果不会被后创建的覆盖
