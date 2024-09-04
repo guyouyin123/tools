@@ -255,11 +255,11 @@ func XlsxWriteV2(dataList []interface{}, sheetName string, savePath string, isSa
 	}
 
 	//5.增加样式--左右上下居中
-	//style, err := f.NewStyle(`{"alignment":{"horizontal":"center","vertical":"center"},"font":{"color":"#FF0000"}}`)
 	style, err := f.NewStyle(`{"alignment":{"horizontal":"center","vertical":"center"}}`)
 	if err != nil {
 		return nil, err
 	}
+
 	// 设置单元格的样式
 	for _, v := range tagMap {
 		for i := 1; i <= row; i++ {
@@ -267,7 +267,16 @@ func XlsxWriteV2(dataList []interface{}, sheetName string, savePath string, isSa
 			f.SetCellStyle(sheetName, cell, cell, style)
 		}
 	}
-
+	//设置标题加粗
+	//标题加粗
+	style2, err := f.NewStyle(`{"alignment":{"horizontal":"center","vertical":"center"},"font": {"bold": true}}`)
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range tagMap {
+		title := fmt.Sprintf("%s1", v.Column)
+		f.SetCellStyle(sheetName, title, title, style2)
+	}
 	if isSaveFile {
 		if err = f.SaveAs(savePath); err != nil {
 			return nil, err

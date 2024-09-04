@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 )
 
 func TestWriteToXlsx(t *testing.T) {
@@ -35,8 +36,10 @@ func TestWriteToXlsx(t *testing.T) {
 
 func TestWriteToXlsxV2(t *testing.T) {
 	type Info struct {
-		Size    int    `excel:"title=面积;width=20;column=D"`
-		Address string `excel:"title=地址;width=20;column=E"`
+		Size    int        `json:"Size" excel:"title=面积;width=20;column=D"`
+		Address string     `excel:"title=地址;width=20;column=E"`
+		BeginDt *time.Time `json:"BeginDt" excel:"title=开始日期;width=20;column=D"` // 开始日期
+
 	}
 	type Like struct {
 		Desc string `excel:"title=爱好;width=40;column=F"`
@@ -53,9 +56,11 @@ func TestWriteToXlsxV2(t *testing.T) {
 		Friend []*Friend
 	}
 
+	now := time.Now()
 	h1 := &Info{
 		Size:    100,
 		Address: "上海市浦东新区东方明珠",
+		BeginDt: &now,
 	}
 	h2 := &Info{
 		Size:    90,
