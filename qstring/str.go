@@ -15,23 +15,32 @@ func ContainsChinese(str string) bool {
 	return false
 }
 
-// 右切
-func RsplitN(s, sep string, n int) []string {
-	st := reverseString(s)
-	st2 := strings.SplitN(st, sep, n)
-	for i := 0; i < len(st2)/2; i++ {
-		st2[i], st2[len(st2)-i-1] = st2[len(st2)-i-1], st2[i]
+// RsplitN 切割字符串，从右边开始切割指定次数，并保留切割字符
+func RsplitN(s string, delimiter string, cuts int) []string {
+	if cuts == 0 {
+		return []string{s}
 	}
-	for k, v := range st2 {
-		st2[k] = reverseString(v)
+	// 从右向左切割字符串
+	parts := strings.Split(s, delimiter)
+	lenth := len(parts)
+	// 如果切割次数超过了部分数量，限制为部分数量
+	if cuts > lenth {
+		cuts = len(parts)
 	}
-	return st2
-}
-
-func reverseString(str string) string {
+	tmp := lenth - cuts
+	// 反转切割后的部分以从右边开始取
+	result := make([]string, 0)
 	st := ""
-	for i := len(str) - 1; i >= 0; i-- {
-		st += string(str[i])
+	for k, v := range parts {
+		if k < tmp {
+			st += v + delimiter
+		} else {
+			if st != "" {
+				result = append(result, st)
+				st = ""
+			}
+			result = append(result, v)
+		}
 	}
-	return st
+	return result
 }

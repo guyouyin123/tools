@@ -22,7 +22,7 @@ func AddFilesToZip(filePaths []string, zipFileName, dirName string) error {
 	defer zipWriter.Close()
 
 	for _, filePath := range filePaths {
-		l := qstring.RsplitN(filePath, "/", 2)
+		l := qstring.RsplitN(filePath, "/", 1)
 		fileName := l[0]
 		if len(l) == 2 {
 			fileName = l[1]
@@ -41,6 +41,9 @@ func AddFilesToZip(filePaths []string, zipFileName, dirName string) error {
 		}
 		// 将文件内容复制到 ZIP 文件中
 		_, err = io.Copy(zipFileWriter, file)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
