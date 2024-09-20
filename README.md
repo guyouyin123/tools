@@ -24,7 +24,9 @@
 
 ## qhttp--http相关工具  <a href="https://github.com/guyouyin123/tools/tree/master/qhttp">点击跳转</a>
 
-## qhystrix熔断工具  <a href="https://github.com/guyouyin123/tools/tree/master/qhttp">点击跳转</a>
+## qip--ip信息查询工具 <a href="https://github.com/guyouyin123/tools/tree/master/qip">点击跳转</a>
+
+## qhystrix--熔断工具  <a href="https://github.com/guyouyin123/tools/tree/master/qhttp">点击跳转</a>
 
 ## qmixCompute--公式计算相关工具  <a href="https://github.com/guyouyin123/tools/tree/master/qmixCompute">点击跳转</a>
 
