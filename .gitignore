@@ -5,3 +5,6 @@
 .DS_Store
 .history
 go.sum
+*.gz
+*.tar
+*.deployer

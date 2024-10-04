@@ -45,11 +45,11 @@ func clientRun() {
 			time.Sleep(time.Second)
 			continue
 		}
-		printEntry2(message.Entries)
+		printEntry(message.Entries)
 	}
 }
 
-func printEntry2(entries []protocolEntry.Entry) {
+func printEntry(entries []protocolEntry.Entry) {
 	for _, entry := range entries {
 		// 忽略事务开启和事务关闭类型
 		if entry.GetEntryType() == protocolEntry.EntryType_TRANSACTIONBEGIN ||
@@ -71,9 +71,9 @@ func printEntry2(entries []protocolEntry.Entry) {
 		header := entry.GetHeader()
 
 		//过滤库名和表名
-		//if !FilterMap(header) {
-		//	continue
-		//}
+		if !FilterMap(header) {
+			continue
+		}
 
 		fmt.Printf("binlog[%s : %d], name[%s,%s], eventType: %s\n",
 			header.GetLogfileName(),
