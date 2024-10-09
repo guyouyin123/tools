@@ -10,7 +10,7 @@ func UdpServer() {
 	// 创建监听
 	socket, err := net.ListenUDP("udp4", &net.UDPAddr{
 		IP:   net.IPv4(0, 0, 0, 0),
-		Port: 8080,
+		Port: 9999,
 	})
 	if err != nil {
 		log.Println("listen err:", err)

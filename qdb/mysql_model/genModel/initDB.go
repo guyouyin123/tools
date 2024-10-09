@@ -5,10 +5,6 @@ import (
 	"fmt"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
-	stdLog "log"
-	"os"
-	"time"
 )
 
 var (
@@ -30,16 +26,8 @@ func GetDbUrl() (string, error) {
 
 func InitDb() error {
 	dbUrl, err := GetDbUrl()
-	newLogger := logger.New(
-		stdLog.New(os.Stdout, "\r\n", stdLog.LstdFlags), // io writer
-		logger.Config{
-			SlowThreshold:             time.Second, // Slow SQL threshold
-			LogLevel:                  logger.Info, // Log level
-			IgnoreRecordNotFoundError: true,        // Ignore ErrRecordNotFound error for logger
-			ParameterizedQueries:      true,        // Don't include params in the SQL log
-			Colorful:                  false,       // Disable color
-		},
-	)
+
+	newLogger := StdLog()
 	db, err := gorm.Open(mysql.New(mysql.Config{
 		DSN:                       dbUrl, // DSN data source name
 		DefaultStringSize:         256,   // string 类型字段的默认长度
