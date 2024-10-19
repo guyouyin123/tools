@@ -48,6 +48,7 @@ func TestWriteToXlsxV2(t *testing.T) {
 		Friend string `excel:"title=朋友;width=40;column=G"`
 	}
 	type User struct {
+		ID     int    `json:"-"`
 		Name   string `excel:"title=姓名;width=20;column=A"`
 		Age    int    `excel:"title=年龄;width=40;column=B"`
 		Email  string `excel:"title=身份证;width=30;column=C"`

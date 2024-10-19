@@ -134,6 +134,9 @@ func XlsxWriteV2(dataList []interface{}, sheetName string, savePath string, isSa
 			elemCount := elem.NumField()
 			for j := 0; j < elemCount; j++ {
 				s := elem.Field(j).Tag.Get("excel")
+				if s == "" {
+					continue
+				}
 				name := elem.Field(j).Name
 				st := strings.Split(s, ";")
 				if len(st) <= 1 {
@@ -151,6 +154,9 @@ func XlsxWriteV2(dataList []interface{}, sheetName string, savePath string, isSa
 			}
 		} else {
 			s := field.Tag.Get("excel")
+			if s == "" {
+				continue
+			}
 			st := strings.Split(s, ";")
 			if len(st) <= 1 {
 				return nil, errors.New("检查结构体的excel标签")
