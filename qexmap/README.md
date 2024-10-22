@@ -12,6 +12,13 @@
 
 
 ```go
+
+import (
+"fmt"
+"time"
+qexmap "github.com/guyouyin123/tools/qexmap"
+)
+
 func TestNewExpiringMap(t *testing.T) {
 	type user struct {
 		IdCard string
@@ -22,7 +29,7 @@ func TestNewExpiringMap(t *testing.T) {
 		Name:   "jeff",
 	}
 
-	userIdMap := NewExpiringMap()
+	userIdMap := qexmap.NewExpiringMap()
 
 	userIdMap.Set(jeff.IdCard, jeff, time.Second*10)
 	v, ok := userIdMap.Get(jeff.IdCard)

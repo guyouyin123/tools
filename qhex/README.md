@@ -2,6 +2,7 @@
 
 # 编码：base64、URL、ASCII、UTF-8、UTF-16、hex
 
+# 更多加密参考：https://github.com/duke-git/lancet/blob/main/docs/api/packages/cryptor.md#AesEcbEncrypt
 ```go
 1.Base64: 用于将二进制数据编码为 ASCII 字符串，便于文本传输和存储。
 

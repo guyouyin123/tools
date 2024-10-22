@@ -1,6 +1,8 @@
 package qconsul
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestClient(t *testing.T) {
 	ConsulClient()
