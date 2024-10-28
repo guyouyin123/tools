@@ -1,29 +1,29 @@
-package main
+package gen
 
 import (
 	"fmt"
-	"gorm.io/gorm/schema"
-	"strings"
-	"unicode"
-
+	"github.com/guyouyin123/tools/qdb-mysql/gormio_gen/gen/conf"
+	"github.com/guyouyin123/tools/qdb-mysql/gormio_gen/gen/tmpl"
 	"gorm.io/driver/mysql"
 	"gorm.io/gen"
 	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
+	"strings"
+	"unicode"
 )
 
 // ref: https://www.cnblogs.com/jeffid/articles/16701279.html
 // ref: https://gorm.io/gen/index.html
 // 更新会覆盖原有文件，所以通过 g.GenerateModel("oss", fieldOpts...) 指定需要更新的表，不要全部覆盖
 
-func main() {
+func Run(basePath string) {
+	//basePath:="../dal"
 	//本项目需要用到的表名配置这里，避免无用的表多余加载。
-	tableNames := TableNames
 	cfg := gen.Config{
-		OutPath: "../dal",
-		//OutPath: "./pkg/gormInit/dal",
-		Mode: gen.WithoutContext | gen.WithDefaultQuery | gen.WithQueryInterface, // generate mode
+		OutPath: basePath,
+		Mode:    gen.WithoutContext | gen.WithDefaultQuery | gen.WithQueryInterface, // generate mode
 		// 表字段可为 null 值时, 对应结体字段使用指针类型
-		FieldNullable: true, // generate pointer when field is nullable
+		FieldNullable: false, // generate pointer when field is nullable
 
 		// 表字段默认值与模型结构体字段零值不一致的字段, 在插入数据时需要赋值该字段值为零值的, 结构体字段须是指针类型才能成功, 即`FieldCoverable:true`配置下生成的结构体字段.
 		// 因为在插入时遇到字段为零值的会被GORM赋予默认值. 如字段`age`表默认值为10, 即使你显式设置为0最后也会被GORM设为10提交.
@@ -40,12 +40,16 @@ func main() {
 
 	// 处理表名
 	cfg.WithTableNameStrategy(func(tableName string) (targetTableName string) {
-		//指定生成需要用到的表
-		boo, ok := tableNames[tableName]
-		if ok && boo {
+		if conf.IsTable {
+			//指定生成需要用到的表
+			boo, ok := conf.TableNames[tableName]
+			if ok && boo {
+				return tableName
+			}
+			return ""
+		} else {
 			return tableName
 		}
-		return ""
 	})
 
 	// 处理 model名
@@ -66,11 +70,11 @@ func main() {
 		return tableName
 	})
 	//处理json名称--大驼峰
-	cfg.WithJSONTagNameStrategy(ToUpperCamelCase)
+	cfg.WithJSONTagNameStrategy(ToUpper)
 
 	g := gen.NewGenerator(cfg)
 
-	dbUrl := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=UTC", dbConf.UserName, dbConf.PassWord, dbConf.IP, dbConf.Port, dbConf.DBName)
+	dbUrl := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=UTC", conf.DbConf.UserName, conf.DbConf.PassWord, conf.DbConf.IP, conf.DbConf.Port, conf.DbConf.DBName)
 	gormdb, _ := gorm.Open(mysql.Open(dbUrl))
 	g.UseDB(gormdb) // reuse your gorm db
 
@@ -83,6 +87,8 @@ func main() {
 		"bigint":    func(detailType gorm.ColumnType) (dataType string) { return "int64" },
 		"int":       func(detailType gorm.ColumnType) (dataType string) { return "int32" },
 		"varbinary": func(detailType gorm.ColumnType) (dataType string) { return "net.IP" },
+		"datetime":  func(detailType gorm.ColumnType) (dataType string) { return "string" },
+		"date":      func(detailType gorm.ColumnType) (dataType string) { return "string" },
 	}
 	// 要先于`ApplyBasic`执行
 	g.WithDataTypeMap(dataMap)
@@ -130,9 +136,12 @@ func main() {
 	g.ApplyBasic(allModel...)
 
 	g.Execute()
+
+	tmpl.RunTemplate(basePath)
 }
 
-func ToUpperCamelCase(s string) string {
+// ToUpper 大驼峰
+func ToUpper(s string) string {
 	words := strings.Split(s, "_")
 	for i, w := range words {
 		if w != "" {

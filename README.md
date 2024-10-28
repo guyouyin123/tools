@@ -4,9 +4,9 @@
 
 ## 博客  <a href="https://www.cnblogs.com/guyouyin123" target="_blank">点击跳转</a>
 
-#### db-mysql--数据库操作工具模型gorm.io  <a href="https://github.com/guyouyin123/tools/tree/master/qdb/mysql_model">点击跳转</a>
+#### db-mysql--数据库操作工具模型gorm.io  <a href="https://github.com/guyouyin123/tools/tree/master/qdb-mysql/gormio_gen">点击跳转</a>
 
-#### db-redis--封装redisv8  <a href="https://github.com/guyouyin123/tools/tree/master/qdb/qredis">点击跳转</a>
+#### db-redis--封装redisv8  <a href="https://github.com/guyouyin123/tools/tree/master/qdb-reids/qredis">点击跳转</a>
 
 #### go_stress-test--压力测试工具  <a href="https://github.com/guyouyin123/tools/tree/master/qGoStress-test">点击跳转</a>
 

@@ -1,10 +1,10 @@
-package genModel
+package gormio
 
 import (
 	"context"
-	"fmt"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 var (
@@ -13,21 +13,29 @@ var (
 )
 
 func GetDbUrl() (string, error) {
-	//配置
-	dataSource := map[string]interface{}{}
-	ip := dataSource["ip"].(string)
-	port := dataSource["port"].(int)
-	username := dataSource["username"].(string)
-	password := dataSource["password"].(string)
-	dbname := dataSource["dbname"].(string)
-	dbSource := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=UTC", username, password, ip, port, dbname)
+	//dataSource, err := pbUtil.GetConfig("mysql_userinfo")
+	//if err != nil {
+	//	log.Error("InitDb", "mysql_userinfo", err)
+	//	return "", err
+	//}
+	//ip := dataSource["ip"].(string)
+	//port := dataSource["port"].(int)
+	//username := dataSource["username"].(string)
+	//password := dataSource["password"].(string)
+	//dbname := dataSource["dbname"].(string)
+	//dbSource := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=UTC", username, password, ip, port, dbname)
+	dbSource := ""
 	return dbSource, nil
 }
 
-func InitDb() error {
+func InitDb(logPath string) error {
 	dbUrl, err := GetDbUrl()
+	if err != nil {
+		panic(err)
+	}
+	dbUrl = "root:123456@tcp(127.0.0.1:3306)/myself?charset=utf8"
 
-	newLogger := StdLog()
+	customLogger := CustomLogger{logger.Default.LogMode(logger.Info)}
 	db, err := gorm.Open(mysql.New(mysql.Config{
 		DSN:                       dbUrl, // DSN data source name
 		DefaultStringSize:         256,   // string 类型字段的默认长度
@@ -37,11 +45,11 @@ func InitDb() error {
 		SkipInitializeWithVersion: false, // 根据当前 MySQL 版本自动配置
 	}), &gorm.Config{
 		SkipDefaultTransaction: true,
-		Logger:                 newLogger,
+		Logger:                 customLogger,
 	})
 
 	if err != nil {
-		panic(fmt.Sprintf("db gorm err:%v", err))
+		return err
 	}
 	WriteDB = db
 	return nil
