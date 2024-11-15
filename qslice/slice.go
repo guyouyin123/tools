@@ -83,7 +83,27 @@ func Uint32SliceToIntSlice(uintSlice []uint32) []int {
 }
 
 // 是否在切片中
-func IsInSlice(value int, slice []int) bool {
+func IsInSliceInt(value int, slice []int) bool {
+	for _, item := range slice {
+		if item == value {
+			return true
+		}
+	}
+	return false
+}
+
+// 是否在切片中
+func IsInSliceInt64(value int64, slice []int64) bool {
+	for _, item := range slice {
+		if item == value {
+			return true
+		}
+	}
+	return false
+}
+
+// 是否在切片中
+func IsInSliceString(value string, slice []string) bool {
 	for _, item := range slice {
 		if item == value {
 			return true
