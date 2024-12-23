@@ -2,17 +2,18 @@ package qconsul
 
 import (
 	"fmt"
+	qconsul "github.com/guyouyin123/tools/qconsul"
 	"testing"
 )
 
 func TestRunTest(t *testing.T) {
 	Address := "127.0.0.1:8500"
+	c := qconsul.ConsulClient{}
 	//初始化
-	consulClient, err := InitConn(Address)
+	err := c.InitConn(Address)
 	if err != nil {
 		return
 	}
-
 	type HReturnFeeRefreshReq struct {
 		IntvDtSta string //面试日期开始时间
 		IntvDtEnd string //面试日期结束时间
@@ -26,7 +27,7 @@ func TestRunTest(t *testing.T) {
 	}
 
 	resp := new(interface{}) //返回接收
-	err = ConsulRequest(consulClient, serviceName, method, req, resp)
+	err = c.ConsulRequest(serviceName, method, req, resp)
 	if err != nil {
 		t.Error(err)
 		return

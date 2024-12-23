@@ -7,10 +7,16 @@ import (
 	"google.golang.org/grpc"
 	"log"
 	"strings"
+	"time"
 )
 
+type ConsulClient struct {
+	client     *api.Client                   //consul 客户端
+	connRpcMap map[string][]*grpc.ClientConn //Rpc连接池
+}
+
 // InitConn 初始化连接
-func InitConn(address string) (*api.Client, error) {
+func (conn *ConsulClient) InitConn(address string) error {
 	// 创建一个新的 Consul 客户端
 	config := &api.Config{
 		Address:    address, // Consul 服务器的地址和端口号
@@ -30,13 +36,35 @@ func InitConn(address string) (*api.Client, error) {
 	client, err := api.NewClient(config)
 	if err != nil {
 		log.Fatalf("Error creating Consul client: %v", err)
-		return nil, err
+		return err
 	}
-	return client, nil
+	conn.client = client
+	conn.connRpcMap = make(map[string][]*grpc.ClientConn, 0)
+	go conn.CheckRpcConn()
+	return nil
+}
+
+// CheckRpcConn 健康检查Rpc连接池
+func (conn *ConsulClient) CheckRpcConn() {
+	timer := time.NewTicker(60 * time.Second)
+	for {
+		<-timer.C
+		serviceNameList := make([]string, 0)
+		for serviceName, _ := range conn.connRpcMap {
+			serviceNameList = append(serviceNameList, serviceName)
+		}
+		for _, serviceName := range serviceNameList {
+			_, err := conn.GetConnList(serviceName)
+			if err != nil {
+				conn.connRpcMap[serviceName] = nil
+				log.Fatalf("Failed to find service %s: %v", serviceName, err)
+			}
+		}
+	}
 }
 
 // RegisterServiceTest consul注册服务
-func RegisterServiceTest(consulConn *api.Client) error {
+func (conn *ConsulClient) RegisterServiceTest() error {
 	// 注册一个服务
 	service := &api.AgentServiceRegistration{
 		ID:      "helloWord-service",
@@ -44,7 +72,7 @@ func RegisterServiceTest(consulConn *api.Client) error {
 		Port:    8500,
 		Address: "127.0.0.1",
 	}
-	err := consulConn.Agent().ServiceRegister(service)
+	err := conn.client.Agent().ServiceRegister(service)
 	if err != nil {
 		log.Fatalf("Error registering service: %v", err)
 		return err
@@ -54,11 +82,31 @@ func RegisterServiceTest(consulConn *api.Client) error {
 }
 
 // ConsulRequest 发起调度
-func ConsulRequest(consulClient *api.Client, serviceName, method string, req, resp interface{}) error {
-	checks, _, err := consulClient.Health().Checks(serviceName, nil)
+func (conn *ConsulClient) ConsulRequest(serviceName, method string, req, resp interface{}) error {
+	var err error
+	connRpcList, ok := conn.connRpcMap[serviceName]
+	if !ok {
+		connRpcList, err = conn.GetConnList(serviceName)
+		if err != nil {
+			return err
+		}
+	}
+	connRpc := connRpcList[0] //TODO 调度算法,轮训，随机，权重等
+	methodReq := fmt.Sprintf("%s.%s/%s", serviceName, serviceName, method)
+	err = connRpc.Invoke(context.Background(), methodReq, req, resp)
+	if err != nil {
+		log.Fatalf("could not invoke: %v", err)
+		return err
+	}
+	return nil
+}
+
+func (conn *ConsulClient) GetConnList(serviceName string) ([]*grpc.ClientConn, error) {
+	connList := make([]*grpc.ClientConn, 0)
+	checks, _, err := conn.client.Health().Checks(serviceName, nil)
 	if err != nil {
 		log.Fatalf("Failed to find service %s: %v", serviceName, err)
-		return err
+		return nil, err
 	}
 	passingAddress := []string{}
 	for _, v := range checks {
@@ -67,32 +115,26 @@ func ConsulRequest(consulClient *api.Client, serviceName, method string, req, re
 			passingAddress = append(passingAddress, fmt.Sprintf("%s:%s", s[1], s[2]))
 		} else {
 			//注销
-			err = consulClient.Agent().ServiceDeregister(v.ServiceID)
+			err = conn.client.Agent().ServiceDeregister(v.ServiceID)
 			if err != nil {
 				log.Fatalf("Error deregistering service: %v", err)
-				return err
+				return nil, err
 			}
 			log.Println("Service deregistered successfully.")
 		}
 	}
 	if len(passingAddress) == 0 {
 		log.Fatalf("Failed to find service %s: %v", serviceName, err)
-		return err
+		return nil, err
 	}
-
-	serviceAddress := passingAddress[0]
-	conn, err := grpc.Dial(serviceAddress, grpc.WithInsecure())
-	if err != nil {
-		log.Fatalf("did not connect: %v", err)
-		return err
+	for _, serviceAddress := range passingAddress {
+		connRpc, err := grpc.Dial(serviceAddress, grpc.WithInsecure())
+		if err != nil {
+			log.Fatalf("did not connect: %v", err)
+			return nil, err
+		}
+		connList = append(connList, connRpc)
 	}
-	defer conn.Close()
-	ctx := context.Background()
-	methodReq := fmt.Sprintf("%s.%s/%s", serviceName, serviceName, method)
-	err = conn.Invoke(ctx, methodReq, req, resp)
-	if err != nil {
-		log.Fatalf("could not invoke: %v", err)
-		return err
-	}
-	return nil
+	conn.connRpcMap[serviceName] = connList
+	return connList, nil
 }
