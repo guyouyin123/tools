@@ -31,7 +31,7 @@ func TestPost(t *testing.T) {
 	data := map[string]interface{}{
 		"item_ids": 123,
 	}
-	respByte, _ := Post(urlR, params, header, data)
+	respByte, _ := Post(urlR, params, header, data, nil)
 	fmt.Println(string(respByte))
 	dto := DouYinVideoDataDto{}
 	_ = jsoniter.Unmarshal(respByte, &dto)

@@ -45,7 +45,7 @@ start:
 	return body, nil
 }
 
-func Post(url string, params, header, data map[string]interface{}) (resp []byte, err error) {
+func Post(url string, params, header, data map[string]interface{}, dataIoReader io.Reader) (resp []byte, err error) {
 	urlParse, _ := netUrl.Parse(url)
 	p := urlParse.Query()
 	for k, v := range params {
@@ -55,8 +55,14 @@ func Post(url string, params, header, data map[string]interface{}) (resp []byte,
 	url = urlParse.String()
 
 	client := &http.Client{}
-	dataS, _ := jsoniter.Marshal(data)
-	dataR := strings.NewReader(string(dataS))
+
+	var dataR io.Reader
+	if dataIoReader != nil {
+		dataR = dataIoReader
+	} else {
+		dataS, _ := jsoniter.Marshal(data)
+		dataR = strings.NewReader(string(dataS))
+	}
 	req, err := http.NewRequest("POST", url, dataR)
 	if err != nil {
 		return nil, err
@@ -70,6 +76,52 @@ start:
 
 	res, err := client.Do(req)
 
+	if err != nil {
+		return nil, err
+	}
+	if res.StatusCode != 200 && count > 5 {
+		goto start
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("code: %d", res.StatusCode)
+	}
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+	return body, nil
+}
+
+func Delete(url string, params, header, data map[string]interface{}, dataIoReader io.Reader) (resp []byte, err error) {
+	urlParse, _ := netUrl.Parse(url)
+	p := urlParse.Query()
+	for k, v := range params {
+		p.Set(k, fmt.Sprintf("%v", v))
+	}
+	urlParse.RawQuery = p.Encode()
+	url = urlParse.String()
+
+	client := &http.Client{}
+
+	var dataR io.Reader
+	if dataIoReader != nil {
+		dataR = dataIoReader
+	} else {
+		dataS, _ := jsoniter.Marshal(data)
+		dataR = strings.NewReader(string(dataS))
+	}
+	req, err := http.NewRequest("DELETE", url, dataR)
+	if err != nil {
+		return nil, err
+	}
+	for k, v := range header {
+		req.Header.Set(k, v.(string))
+	}
+	count := 0
+start:
+	count++
+	res, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
