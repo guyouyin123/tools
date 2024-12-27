@@ -3,10 +3,12 @@ package qkimi
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	qhttp "github.com/guyouyin123/tools/qhttp"
 	jsoniter "github.com/json-iterator/go"
 	"io"
 	"mime/multipart"
+	"net/http"
 	"os"
 	"path/filepath"
 )
@@ -44,8 +46,8 @@ func (kimi *KiMiAi) Chat(messages []map[string]interface{}) (*ChatStruct, error)
 	return data, nil
 }
 
-// createFile 上传文件
-func (kimi *KiMiAi) CreateFile(filePath string) (*FileCreate, error) {
+// CreateFilePath 上传本地文件
+func (kimi *KiMiAi) CreateFilePath(filePath string) (*FileCreate, error) {
 	form := new(bytes.Buffer)
 	writer := multipart.NewWriter(form)
 	formField, err := writer.CreateFormField("purpose")
@@ -77,6 +79,68 @@ func (kimi *KiMiAi) CreateFile(filePath string) (*FileCreate, error) {
 	}
 	data := &FileCreate{}
 	_ = jsoniter.Unmarshal(resp, &data)
+	return data, nil
+}
+
+// CreateFileUrl 上传网络文件
+func (kimi *KiMiAi) CreateFileUrl(fileUrl string) (*FileCreate, error) {
+	form := new(bytes.Buffer)
+	writer := multipart.NewWriter(form)
+
+	// 添加表单字段
+	formField, err := writer.CreateFormField("purpose")
+	if err != nil {
+		return nil, err
+	}
+	_, err = formField.Write([]byte("file-extract"))
+	if err != nil {
+		return nil, err
+	}
+
+	// 创建文件字段
+	fw, err := writer.CreateFormFile("file", filepath.Base(fileUrl))
+	if err != nil {
+		return nil, err
+	}
+
+	// 发送 GET 请求以获取文件
+	response, err := http.Get(fileUrl)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching file: %w", err)
+	}
+	defer response.Body.Close()
+
+	// 检查响应状态
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("error: status code %d", response.StatusCode)
+	}
+
+	// 将响应体写入文件字段
+	_, err = io.Copy(fw, response.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	// 关闭 writer
+	if err := writer.Close(); err != nil {
+		return nil, err
+	}
+
+	// 发送 POST 请求
+	url := kimi.BaseUrl + "/files"
+	header := kimi.Header
+	header["Content-Type"] = writer.FormDataContentType()
+
+	resp, err := qhttp.Post(url, nil, header, nil, form)
+	if err != nil {
+		return nil, err
+	}
+
+	data := &FileCreate{}
+	if err := jsoniter.Unmarshal(resp, &data); err != nil {
+		return nil, err
+	}
+
 	return data, nil
 }
 
