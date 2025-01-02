@@ -10,7 +10,9 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 )
 
 func (kimi *KiMiAi) InitKiMiAi(apiKey, model string, temperature float32) {
@@ -55,7 +57,12 @@ func (kimi *KiMiAi) CreateFilePath(filePath string) (*FileCreate, error) {
 		return nil, err
 	}
 	_, err = formField.Write([]byte("file-extract"))
-	fw, err := writer.CreateFormFile("file", filepath.Base(filePath))
+
+	fileName := filepath.Base(filePath)
+	if getImageExtension(filePath) == "" {
+		fileName += ".jpg"
+	}
+	fw, err := writer.CreateFormFile("file", fileName)
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +105,11 @@ func (kimi *KiMiAi) CreateFileUrl(fileUrl string) (*FileCreate, error) {
 	}
 
 	// 创建文件字段
-	fw, err := writer.CreateFormFile("file", filepath.Base(fileUrl))
+	fileName := filepath.Base(fileUrl)
+	if getImageExtension(fileUrl) == "" {
+		fileName += ".jpg"
+	}
+	fw, err := writer.CreateFormFile("file", fileName)
 	if err != nil {
 		return nil, err
 	}
@@ -178,4 +189,15 @@ func (kimi *KiMiAi) UsersMeBalance() (*Balance, error) {
 	data := &Balance{}
 	_ = jsoniter.Unmarshal(resp, &data)
 	return data, nil
+}
+
+func getImageExtension(url string) string {
+	ext := path.Ext(url)
+	if ext == "" {
+		if idx := strings.Index(url, "?"); idx != -1 {
+			url = url[:idx]
+		}
+		ext = path.Ext(url)
+	}
+	return ext
 }

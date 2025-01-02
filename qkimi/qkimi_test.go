@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	apiKey      = "key"
+	apiKey      = ""
 	model       = "moonshot-v1-8k"
 	temperature = float32(0.1)
 )
