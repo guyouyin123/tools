@@ -27,15 +27,9 @@ func Get(url string, params, header map[string]interface{}) (resp []byte, err er
 	for k, v := range header {
 		req.Header.Add(k, v.(string))
 	}
-	count := 0
-start:
-	count++
 	res, err := client.Do(req)
 	if err != nil {
 		return nil, err
-	}
-	if res.StatusCode != 200 && count > 5 {
-		goto start
 	}
 	defer res.Body.Close()
 	body, err := io.ReadAll(res.Body)
@@ -70,17 +64,10 @@ func Post(url string, params, header, data map[string]interface{}, dataIoReader 
 	for k, v := range header {
 		req.Header.Set(k, v.(string))
 	}
-	count := 0
-start:
-	count++
-
 	res, err := client.Do(req)
 
 	if err != nil {
 		return nil, err
-	}
-	if res.StatusCode != 200 && count > 5 {
-		goto start
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
