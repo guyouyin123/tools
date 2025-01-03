@@ -134,3 +134,10 @@ func Test_chat(t *testing.T) {
 	}
 	fmt.Println(resp)
 }
+
+func Test_DeleteFiles(t *testing.T) {
+	//清空文件
+	kimi := &KiMiAi{}
+	kimi.InitKiMiAi(apiKey, model, temperature)
+	kimi.DeleteFiles()
+}

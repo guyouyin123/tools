@@ -19,7 +19,9 @@ https://platform.moonshot.cn/docs/intro
 ```go
 本文实现的api：
 上传文件：https://api.moonshot.cn/v1/files
+查询所有文件：https://api.moonshot.cn/v1/files
 删除文件：https://api.moonshot.cn/v1/files/{fileId}
+删除所有文件：DeleteFiles
 图文识别：https://api.moonshot.cn/v1/files/{fileId}/content
 ai对话：https://api.moonshot.cn/v1/chat/completions
 查询余额：https://api.moonshot.cn/v1/users/me/balance
@@ -145,5 +147,16 @@ func Test_chat(t *testing.T) {
 	}
 	fmt.Println(resp)
 }
+```
+
+## 清空文件
+```go
+func Test_DeleteFiles(t *testing.T) {
+    //清空文件
+    kimi := &KiMiAi{}
+    kimi.InitKiMiAi(apiKey, model, temperature)
+    kimi.DeleteFiles()
+}
+
 ```
 

@@ -62,3 +62,17 @@ type Balance struct {
 	Scode  string `json:"scode"`
 	Status string `json:"status"`
 }
+
+type Files struct {
+	Object string `json:"object"`
+	Data   []struct {
+		Id            string `json:"id"`             //文件id
+		Object        string `json:"object"`         //文件类型
+		Bytes         int64  `json:"bytes"`          //文件大小
+		CreatedAt     int64  `json:"created_at"`     //文件创建时间
+		Filename      string `json:"filename"`       //文件名
+		Purpose       string `json:"purpose"`        //文件用途
+		Status        string `json:"status"`         //文件状态
+		StatusDetails string `json:"status_details"` //文件状态详情
+	} `json:"data"`
+}

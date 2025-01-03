@@ -155,7 +155,7 @@ func (kimi *KiMiAi) CreateFileUrl(fileUrl string) (*FileCreate, error) {
 	return data, nil
 }
 
-// deleteFile 删除文件
+// DeleteFile 删除单个文件
 func (kimi *KiMiAi) DeleteFile(fileId string) (*DeleteFile, error) {
 	url := kimi.BaseUrl + "/files/" + fileId
 	resp, err := qhttp.Delete(url, nil, kimi.Header, nil, nil)
@@ -165,6 +165,20 @@ func (kimi *KiMiAi) DeleteFile(fileId string) (*DeleteFile, error) {
 	data := &DeleteFile{}
 	_ = jsoniter.Unmarshal(resp, &data)
 	return data, nil
+}
+
+// DeleteFiles 删除所有文件
+func (kimi *KiMiAi) DeleteFiles() {
+	fileList, err := kimi.GetFiles()
+	if err != nil {
+		return
+	}
+	for _, file := range fileList.Data {
+		_, err := kimi.DeleteFile(file.Id)
+		if err != nil {
+			return
+		}
+	}
 }
 
 // GetFileContent 图片提取文字
@@ -200,4 +214,16 @@ func getImageExtension(url string) string {
 		ext = path.Ext(url)
 	}
 	return ext
+}
+
+// GetFiles 列举出用户已上传的所有文件
+func (kimi *KiMiAi) GetFiles() (*Files, error) {
+	url := kimi.BaseUrl + "/files"
+	resp, err := qhttp.Get(url, nil, kimi.Header)
+	if err != nil {
+		return nil, err
+	}
+	data := &Files{}
+	_ = jsoniter.Unmarshal(resp, &data)
+	return data, nil
 }
