@@ -2,13 +2,12 @@ package qconsul
 
 import (
 	"fmt"
-	qconsul "github.com/guyouyin123/tools/qconsul"
 	"testing"
 )
 
 func TestRunTest(t *testing.T) {
 	Address := "127.0.0.1:8500"
-	c := qconsul.ConsulClient{}
+	c := ConsulClient{}
 	//初始化
 	err := c.InitConn(Address)
 	if err != nil {
