@@ -20,7 +20,7 @@ type Tag struct {
 XlsxWriteV1 写入xlsx
 不支持合并单元格
 */
-// DEPRECATED: Use XlsxWriteV2 instead.
+// DEPRECATED: Use XlsxWriteV3 instead.
 func XlsxWriteV1(dataList []interface{}, sheetName string, savePath string, isSaveFile bool) (file *xlsx.File, err error) {
 	//1.添加sheet
 	file = xlsx.NewFile()
@@ -106,6 +106,8 @@ XlsxWriteV2 写入xlsx
 只支持一层嵌套
 结构体类型支持指针和非指针
 */
+// Deprecated: Use XlsxWriteV3 instead.
+// Use NewFunction instead.
 func XlsxWriteV2(dataList []interface{}, sheetName string, savePath string, isSaveFile bool) (f *excelize.File, err error) {
 	//1.添加sheet
 	f = excelize.NewFile()

@@ -177,3 +177,77 @@ func TestWriteToXlsxV2_1(t *testing.T) {
 	}
 
 }
+
+func TestWriteToXlsxV3(t *testing.T) {
+	type Desc struct {
+		Url string `excel:"title=url;width=20;column=E"`
+	}
+
+	type like struct {
+		Like string `excel:"title=爱好;width=20;column=D"`
+		Desc []*Desc
+	}
+
+	type Class struct {
+		Class string `excel:"title=分类;width=20;column=C"`
+		Like  []*like
+	}
+	type User struct {
+		Name  string `excel:"title=姓名;width=20;column=F"`
+		Age   int    `excel:"title=年龄;width=20;column=B"`
+		Class []*Class
+	}
+
+	l1 := like{
+		Like: "打球",
+		Desc: []*Desc{
+			{Url: "www.baidu1.com"},
+			{Url: "www.baidu2.com"},
+		},
+	}
+	l2 := like{
+		Like: "跑步",
+		Desc: []*Desc{
+			{Url: "www.baidu3.com"},
+			{Url: "www.baidu4.com"},
+		},
+	}
+	l3 := like{
+		Like: "三国",
+		Desc: []*Desc{
+			{Url: "www.baidu5.com"},
+			{Url: "www.baidu6.com"},
+		},
+	}
+	l4 := like{
+		Like: "水浒",
+		Desc: []*Desc{
+			{Url: "www.baidu7.com"},
+			{Url: "www.baidu8.com"},
+		},
+	}
+
+	like1 := Class{
+		Class: "球类",
+		Like:  []*like{&l1, &l2},
+	}
+	like2 := Class{
+		Class: "娱乐类",
+		Like:  []*like{&l3, &l4},
+	}
+
+	user1 := User{
+		Name:  "Jeff",
+		Age:   18,
+		Class: []*Class{&like1, &like2},
+	}
+
+	userList := make([]interface{}, 0)
+	userList = append(userList, user1)
+	sheetName := "Sheet1"
+	_, err := XlsxWriteV3(userList, sheetName, "./user2.xlsx", true)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+}
