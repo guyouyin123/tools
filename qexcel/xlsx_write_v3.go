@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/360EntSecGroup-Skylar/excelize"
+	jsoniter "github.com/json-iterator/go"
 	"reflect"
 	"strconv"
 	"strings"
@@ -15,6 +16,14 @@ XlsxWriteV3 写入xlsx
 v2只支持1层嵌套，只支持excel一层合并。v3支持无级嵌套，无级合并
 结构体类型支持指针和非指针
 */
+
+type Tag struct {
+	Title  string
+	Width  int
+	Column string
+	isEnum bool
+	Enum   map[int]string
+}
 
 type saveExcel struct {
 	f         *excelize.File
@@ -40,7 +49,45 @@ func initExcel(sheetName string) *saveExcel {
 	return s
 }
 
-func XlsxWriteV3(dataList []interface{}, sheetName string, savePath string, isSaveFile bool) (f *excelize.File, err error) {
+/*
+XlsxWriteV3 写入xlsx
+ps:数组结构体需要放在最后
+错误事例：
+
+	type User struct {
+		Name  string `excel:"title=姓名;width=20;column=F"`
+		Class []*Class
+		Age   int `excel:"title=年龄;width=20;column=B"`
+	}
+
+正确事例：
+
+	type User struct {
+		Name  string `excel:"title=姓名;width=20;column=F"`
+		Age   int `excel:"title=年龄;width=20;column=B"`
+		Class []*Class
+	}
+*/
+func XlsxWriteV3(data interface{}, sheetName string, savePath string, isSaveFile bool) (f *excelize.File, err error) {
+	dataList := make([]interface{}, 0)
+	t := reflect.TypeOf(data)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+		v := reflect.ValueOf(data).Elem()
+		if v.Kind() == reflect.Slice {
+			for i := 0; i < v.Len(); i++ {
+				dataList = append(dataList, v.Index(i).Interface())
+			}
+		}
+	} else if t.Kind() == reflect.Slice {
+		v := reflect.ValueOf(data)
+		for i := 0; i < v.Len(); i++ {
+			dataList = append(dataList, v.Index(i).Interface())
+		}
+	} else {
+		dataList = append(dataList, data)
+	}
+
 	this := initExcel(sheetName)
 
 	//1.处理tag标签
@@ -80,7 +127,7 @@ func (this *saveExcel) MergeCell() {
 	sta := 0
 	end := 0
 	for _, tag := range this.tagMap {
-		for i := 1; i <= this.row; i++ {
+		for i := 2; i <= this.row; i++ {
 			cell := fmt.Sprintf("%s%d", tag.Column, i)
 			value := this.f.GetCellValue(this.sheetName, cell)
 			if value != "" {
@@ -166,10 +213,23 @@ func (this *saveExcel) fieldHandle(field reflect.StructField) error {
 	if len(columnL) <= 1 {
 		return errors.New("检查结构体的excel标签")
 	}
+	dic := map[int]string{}
+	isEnum := false
+	if len(st) > 3 {
+		enumL := strings.Split(st[3], "=")
+		if len(enumL) > 1 {
+			dicStr := enumL[1]
+			_ = jsoniter.Unmarshal([]byte(dicStr), &dic)
+			isEnum = true
+		}
+	}
+
 	t := &Tag{
 		Title:  titleL[1],
 		Width:  width,
 		Column: columnL[1],
+		isEnum: isEnum,
+		Enum:   dic,
 	}
 	this.tagMap[fieldName] = t
 	return nil
@@ -230,7 +290,7 @@ start:
 }
 
 func (this *saveExcel) WriteDate(dataList []interface{}) {
-	for _, data := range dataList {
+	for index, data := range dataList {
 		var va reflect.Value
 		baseDataVa := reflect.ValueOf(data)
 		if baseDataVa.Kind() == reflect.Ptr {
@@ -252,6 +312,9 @@ func (this *saveExcel) WriteDate(dataList []interface{}) {
 				elemSliceObj = baseDataVa.Field(i)
 			}
 			this.writeExcel(field, elemSliceObj, vaField)
+		}
+		if index != len(dataList)-1 {
+			this.row++
 		}
 	}
 }
@@ -296,6 +359,18 @@ func (this *saveExcel) write(field reflect.StructField, vaField reflect.Value) {
 	}
 	if this.addRow {
 		this.row++
+	}
+
+	if tagInfo.isEnum {
+		str, ok2 := fileValue.(int)
+		if ok2 {
+			v, ok3 := tagInfo.Enum[str]
+			if ok3 {
+				fileValue = v
+			} else {
+				fileValue = "枚举值不存在"
+			}
+		}
 	}
 	pos := fmt.Sprintf("%s%d", tagInfo.Column, this.row)
 	this.f.SetCellValue(this.sheetName, pos, fileValue)

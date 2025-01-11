@@ -195,6 +195,7 @@ func TestWriteToXlsxV3(t *testing.T) {
 	type User struct {
 		Name  string `excel:"title=姓名;width=20;column=F"`
 		Age   int    `excel:"title=年龄;width=20;column=B"`
+		Type  int    `excel:"title=类型;width=20;column=A;enum={\"1\":\"老师\",\"2\":\"学生\",\"0\":\"未知\"}"`
 		Class []*Class
 	}
 
@@ -240,12 +241,56 @@ func TestWriteToXlsxV3(t *testing.T) {
 		Name:  "Jeff",
 		Age:   18,
 		Class: []*Class{&like1, &like2},
+		Type:  99,
 	}
 
-	userList := make([]interface{}, 0)
-	userList = append(userList, user1)
 	sheetName := "Sheet1"
-	_, err := XlsxWriteV3(userList, sheetName, "./user2.xlsx", true)
+	_, err := XlsxWriteV3(user1, sheetName, "./user2.xlsx", true)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+}
+
+func Test1WriteToXlsxV3(t *testing.T) {
+	type like struct {
+		Like string `excel:"title=爱好;width=20;column=C"`
+	}
+
+	type User struct {
+		Name string `excel:"title=姓名;width=20;column=A"`
+		Age  int    `excel:"title=年龄;width=20;column=B"`
+		Like []*like
+	}
+	list := []*User{
+		{
+			Name: "张三",
+			Age:  18,
+			Like: []*like{
+				{
+					Like: "吃饭",
+				},
+				{
+					Like: "睡觉",
+				},
+			},
+		},
+		{
+			Name: "李四",
+			Age:  19,
+			Like: []*like{
+				{
+					Like: "123",
+				},
+				{
+					Like: "456",
+				},
+			},
+		},
+	}
+
+	sheetName := "Sheet1"
+	_, err := XlsxWriteV3(&list, sheetName, "./userv3.xlsx", true)
 	if err != nil {
 		fmt.Println(err)
 		return

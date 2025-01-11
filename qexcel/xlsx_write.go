@@ -10,12 +10,6 @@ import (
 	"strings"
 )
 
-type Tag struct {
-	Title  string
-	Width  int
-	Column string
-}
-
 /*
 XlsxWriteV1 写入xlsx
 不支持合并单元格
@@ -107,7 +101,6 @@ XlsxWriteV2 写入xlsx
 结构体类型支持指针和非指针
 */
 // Deprecated: Use XlsxWriteV3 instead.
-// Use NewFunction instead.
 func XlsxWriteV2(dataList []interface{}, sheetName string, savePath string, isSaveFile bool) (f *excelize.File, err error) {
 	//1.添加sheet
 	f = excelize.NewFile()

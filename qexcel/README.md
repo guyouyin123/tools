@@ -1,7 +1,89 @@
 # 读写excel相关工具
 
 
-excel写入推荐使用：XlsxWriteV2
+## v3版本
+通过反射实现结构体自动写入excel，版本向下兼容
+特性：
+1.支持无级嵌套，按照数据合并单元格
+2.支持配置枚举值
+3.结构体类型支持指针和非指针
+
+```go
+func TestWriteToXlsxV3(t *testing.T) {
+	type Desc struct {
+		Url string `excel:"title=url;width=20;column=E"`
+	}
+
+	type like struct {
+		Like string `excel:"title=爱好;width=20;column=D"`
+		Desc []*Desc
+	}
+
+	type Class struct {
+		Class string `excel:"title=分类;width=20;column=C"`
+		Like  []*like
+	}
+	type User struct {
+		Name  string `excel:"title=姓名;width=20;column=F"`
+		Age   int    `excel:"title=年龄;width=20;column=B"`
+		Type  int    `excel:"title=类型;width=20;column=A;enum={\"1\":\"老师\",\"2\":\"学生\",\"0\":\"未知\"}"`
+		Class []*Class
+	}
+
+	l1 := like{
+		Like: "打球",
+		Desc: []*Desc{
+			{Url: "www.baidu1.com"},
+			{Url: "www.baidu2.com"},
+		},
+	}
+	l2 := like{
+		Like: "跑步",
+		Desc: []*Desc{
+			{Url: "www.baidu3.com"},
+			{Url: "www.baidu4.com"},
+		},
+	}
+	l3 := like{
+		Like: "三国",
+		Desc: []*Desc{
+			{Url: "www.baidu5.com"},
+			{Url: "www.baidu6.com"},
+		},
+	}
+	l4 := like{
+		Like: "水浒",
+		Desc: []*Desc{
+			{Url: "www.baidu7.com"},
+			{Url: "www.baidu8.com"},
+		},
+	}
+
+	like1 := Class{
+		Class: "球类",
+		Like:  []*like{&l1, &l2},
+	}
+	like2 := Class{
+		Class: "娱乐类",
+		Like:  []*like{&l3, &l4},
+	}
+
+	user1 := User{
+		Name:  "Jeff",
+		Age:   18,
+		Class: []*Class{&like1, &like2},
+		Type:  99,
+	}
+	
+	_, err := XlsxWriteV3(user1, sheetName, "./user2.xlsx", true)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+}
+```
+
+## v2版本
 支持合并单元格--v2兼容v1
 只支持一层嵌套
 结构体类型支持指针和非指针
