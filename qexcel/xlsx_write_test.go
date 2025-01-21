@@ -245,7 +245,7 @@ func TestWriteToXlsxV3(t *testing.T) {
 	}
 
 	sheetName := "Sheet1"
-	_, err := XlsxWriteV3(user1, sheetName, "./user2.xlsx", true)
+	_, err := XlsxWriteV3(nil, user1, sheetName, "./user2.xlsx", true)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -290,7 +290,13 @@ func Test1WriteToXlsxV3(t *testing.T) {
 	}
 
 	sheetName := "Sheet1"
-	_, err := XlsxWriteV3(&list, sheetName, "./userv3.xlsx", true)
+	f, err := XlsxWriteV3(nil, &list, sheetName, "./userv3.xlsx", false)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	sheetName = "Sheet3"
+	_, err = XlsxWriteV3(f, &list, sheetName, "./userv3.xlsx", true)
 	if err != nil {
 		fmt.Println(err)
 		return

@@ -34,10 +34,14 @@ type saveExcel struct {
 	addRow    bool
 }
 
-func initExcel(sheetName string) *saveExcel {
-	f := excelize.NewFile()
-	f.SetSheetName(sheetName, sheetName)
+func initExcel(f *excelize.File, sheetName string) *saveExcel {
+	if f == nil {
+		f = excelize.NewFile()
+	}
 
+	index := f.NewSheet(sheetName)
+	//f.SetSheetName(sheetName, sheetName)
+	f.SetActiveSheet(index)
 	s := &saveExcel{
 		f:         f,
 		tagMap:    map[string]*Tag{},
@@ -68,7 +72,7 @@ ps:数组结构体需要放在最后
 		Class []*Class
 	}
 */
-func XlsxWriteV3(data interface{}, sheetName string, savePath string, isSaveFile bool) (f *excelize.File, err error) {
+func XlsxWriteV3(f *excelize.File, data interface{}, sheetName string, savePath string, isSaveFile bool) (f2 *excelize.File, err error) {
 	dataList := make([]interface{}, 0)
 	t := reflect.TypeOf(data)
 	if t.Kind() == reflect.Ptr {
@@ -88,7 +92,7 @@ func XlsxWriteV3(data interface{}, sheetName string, savePath string, isSaveFile
 		dataList = append(dataList, data)
 	}
 
-	this := initExcel(sheetName)
+	this := initExcel(f, sheetName)
 
 	//1.处理tag标签
 	err = this.tagHandle(dataList)
