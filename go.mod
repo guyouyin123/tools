@@ -10,6 +10,7 @@ require (
 	github.com/gorilla/websocket v0.0.0-20170926233335-4201258b820c
 	github.com/hashicorp/consul/api v1.29.4
 	github.com/jinzhu/copier v0.4.0
+	github.com/jordan-wright/email v4.0.1-0.20210109023952-943e75fe5223+incompatible
 	github.com/json-iterator/go v1.1.12
 	github.com/neo4j/neo4j-go-driver/v4 v4.4.7
 	github.com/pingcap/errors v0.11.4
@@ -25,7 +26,6 @@ require (
 )
 
 require (
-	git.woda.ink/woda/pb v0.0.6 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
