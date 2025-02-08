@@ -7,7 +7,7 @@ import (
 
 func TestRunTest(t *testing.T) {
 	Address := "127.0.0.1:8500"
-	c := ConsulClient{}
+	c := ConsulClient{IsDeregister: true, IndexType: 1}
 	//初始化
 	err := c.InitConn(Address)
 	if err != nil {

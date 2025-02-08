@@ -6,13 +6,20 @@ import (
 	"github.com/hashicorp/consul/api"
 	"google.golang.org/grpc"
 	"log"
+	"math/rand"
 	"strings"
 	"time"
 )
 
 type ConsulClient struct {
-	client     *api.Client                   //consul 客户端
-	connRpcMap map[string][]*grpc.ClientConn //Rpc连接池
+	IsDeregister bool //是否注销无效的链接（默认false）
+	IndexType    int  //调度类型 1轮训调度(默认) 2随机调度
+	q
+}
+type q struct {
+	client       *api.Client                   //consul 客户端
+	connRpcMap   map[string][]*grpc.ClientConn //Rpc连接池
+	currentIndex map[string]int                //存储每个服务当前索引
 }
 
 // InitConn 初始化连接
@@ -40,6 +47,10 @@ func (conn *ConsulClient) InitConn(address string) error {
 	}
 	conn.client = client
 	conn.connRpcMap = make(map[string][]*grpc.ClientConn, 0)
+	if conn.IndexType == 0 {
+		conn.IndexType = 1
+	}
+	conn.currentIndex = make(map[string]int, 0)
 	go conn.CheckRpcConn()
 	return nil
 }
@@ -81,7 +92,10 @@ func (conn *ConsulClient) RegisterServiceTest() error {
 	return nil
 }
 
-// ConsulRequest 发起调度
+/*
+ConsulRequest 发起调度
+indexType 调度类型 1轮训调度 2随机调度 TODO 权重调度
+*/
 func (conn *ConsulClient) ConsulRequest(serviceName, method string, req, resp interface{}) error {
 	var err error
 	connRpcList, ok := conn.connRpcMap[serviceName]
@@ -90,8 +104,38 @@ func (conn *ConsulClient) ConsulRequest(serviceName, method string, req, resp in
 		if err != nil {
 			return err
 		}
+		switch conn.IndexType {
+		case 1:
+			//轮训调度 初始调度第0个
+			conn.currentIndex[serviceName] = 0
+		case 2:
+			//随机调度
+			rand.Seed(time.Now().UnixNano())
+			index := rand.Intn(len(connRpcList))
+			conn.currentIndex[serviceName] = index
+		default:
+			panic("indexType err")
+		}
 	}
-	connRpc := connRpcList[0] //TODO 调度算法,轮训，随机，权重等
+	connRpc := connRpcList[conn.currentIndex[serviceName]]
+
+	switch conn.IndexType {
+	case 1:
+		//轮训调度
+		index := conn.currentIndex[serviceName] + 1
+		if index == len(connRpcList) {
+			index = 0
+		}
+		conn.currentIndex[serviceName] = index
+	case 2:
+		//随机调度
+		rand.Seed(time.Now().UnixNano())
+		index := rand.Intn(len(connRpcList))
+		conn.currentIndex[serviceName] = index
+	default:
+		panic("indexType err")
+	}
+
 	methodReq := fmt.Sprintf("%s.%s/%s", serviceName, serviceName, method)
 	err = connRpc.Invoke(context.Background(), methodReq, req, resp)
 	if err != nil {
@@ -101,6 +145,10 @@ func (conn *ConsulClient) ConsulRequest(serviceName, method string, req, resp in
 	return nil
 }
 
+/*
+GetConnList 获取Rpc连接池
+isDeregister 是否注销无效的链接
+*/
 func (conn *ConsulClient) GetConnList(serviceName string) ([]*grpc.ClientConn, error) {
 	connList := make([]*grpc.ClientConn, 0)
 	checks, _, err := conn.client.Health().Checks(serviceName, nil)
@@ -114,13 +162,15 @@ func (conn *ConsulClient) GetConnList(serviceName string) ([]*grpc.ClientConn, e
 			s := strings.Split(v.ServiceID, "-")
 			passingAddress = append(passingAddress, fmt.Sprintf("%s:%s", s[1], s[2]))
 		} else {
-			//注销
-			err = conn.client.Agent().ServiceDeregister(v.ServiceID)
-			if err != nil {
-				log.Fatalf("Error deregistering service: %v", err)
-				return nil, err
+			if conn.IsDeregister {
+				//注销
+				err = conn.client.Agent().ServiceDeregister(v.ServiceID)
+				if err != nil {
+					log.Fatalf("Error deregistering service: %v", err)
+					return nil, err
+				}
+				log.Println("Service deregistered successfully.")
 			}
-			log.Println("Service deregistered successfully.")
 		}
 	}
 	if len(passingAddress) == 0 {
