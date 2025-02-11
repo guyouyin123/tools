@@ -22,7 +22,7 @@ type Tag struct {
 	Width  int
 	Column string
 	isEnum bool
-	Enum   map[int]string
+	Enum   map[string]string
 }
 
 type saveExcel struct {
@@ -217,7 +217,7 @@ func (this *saveExcel) fieldHandle(field reflect.StructField) error {
 	if len(columnL) <= 1 {
 		return errors.New("检查结构体的excel标签")
 	}
-	dic := map[int]string{}
+	dic := map[string]string{}
 	isEnum := false
 	if len(st) > 3 {
 		enumL := strings.Split(st[3], "=")
@@ -364,19 +364,25 @@ func (this *saveExcel) write(field reflect.StructField, vaField reflect.Value) {
 	if this.addRow {
 		this.row++
 	}
-
 	if tagInfo.isEnum {
-		str, ok2 := fileValue.(int)
+		f := fmt.Sprintf("%v", fileValue)
+		v, ok2 := tagInfo.Enum[f]
 		if ok2 {
-			v, ok3 := tagInfo.Enum[str]
-			if ok3 {
-				fileValue = v
-			} else {
-				fileValue = "枚举值不存在"
-			}
+			fileValue = v
+		} else {
+			fileValue = "未知"
 		}
 	}
 	pos := fmt.Sprintf("%s%d", tagInfo.Column, this.row)
 	this.f.SetCellValue(this.sheetName, pos, fileValue)
 
+}
+
+func isIntType(kind reflect.Kind) bool {
+	switch kind {
+	case reflect.Int, reflect.Uint, reflect.Int8, reflect.Uint8, reflect.Int16, reflect.Uint16, reflect.Int32, reflect.Uint32, reflect.Int64, reflect.Uint64:
+		return true
+	default:
+		return false
+	}
 }

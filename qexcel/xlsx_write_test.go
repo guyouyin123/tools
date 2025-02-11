@@ -258,14 +258,16 @@ func Test1WriteToXlsxV3(t *testing.T) {
 	}
 
 	type User struct {
-		Name string `excel:"title=姓名;width=20;column=A"`
-		Age  int    `excel:"title=年龄;width=20;column=B"`
-		Like []*like
+		Name          string `excel:"title=姓名;width=20;column=A"`
+		Age           int    `excel:"title=年龄;width=20;column=B"`
+		SettlementTyp int8   `excel:"title=模式;width=10;column=F;enum={\"0\":\"未知\",\"1\":\"ZX模式\",\"2\":\"Z模式\",\"3\":\"ZA模式\",\"4\":\"Z-B模式\",\"5\":\"ZX-B模式\",\"6\":\"ZX-A模式\",\"7\":\"Z-D模式\",\"8\":\"ZX-D模式\"}"`
+		Like          []*like
 	}
 	list := []*User{
 		{
-			Name: "张三",
-			Age:  18,
+			Name:          "张三",
+			Age:           18,
+			SettlementTyp: 1,
 			Like: []*like{
 				{
 					Like: "吃饭",
@@ -276,8 +278,9 @@ func Test1WriteToXlsxV3(t *testing.T) {
 			},
 		},
 		{
-			Name: "李四",
-			Age:  19,
+			Name:          "李四",
+			Age:           19,
+			SettlementTyp: 2,
 			Like: []*like{
 				{
 					Like: "123",
@@ -289,16 +292,19 @@ func Test1WriteToXlsxV3(t *testing.T) {
 		},
 	}
 
-	sheetName := "Sheet1"
+	sheetName := "正常数据"
 	f, err := XlsxWriteV3(nil, &list, sheetName, "./userv3.xlsx", false)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	sheetName = "Sheet3"
+
+	f.DeleteSheet("Sheet1")
+	sheetName = "异常数据"
 	_, err = XlsxWriteV3(f, &list, sheetName, "./userv3.xlsx", true)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+
 }
