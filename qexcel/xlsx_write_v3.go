@@ -375,7 +375,6 @@ func (this *saveExcel) write(field reflect.StructField, vaField reflect.Value) {
 	}
 	pos := fmt.Sprintf("%s%d", tagInfo.Column, this.row)
 	this.f.SetCellValue(this.sheetName, pos, fileValue)
-
 }
 
 func isIntType(kind reflect.Kind) bool {
