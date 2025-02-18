@@ -102,6 +102,10 @@ XlsxWriteV2 写入xlsx
 */
 // Deprecated: Use XlsxWriteV3 instead.
 func XlsxWriteV2(dataList []interface{}, sheetName string, savePath string, isSaveFile bool) (f *excelize.File, err error) {
+	if len(dataList) == 0 {
+		return nil, errors.New("dataList is empty")
+	}
+
 	//1.添加sheet
 	f = excelize.NewFile()
 	f.SetSheetName(sheetName, sheetName)

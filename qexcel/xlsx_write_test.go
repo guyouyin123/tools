@@ -299,12 +299,13 @@ func Test1WriteToXlsxV3(t *testing.T) {
 		return
 	}
 
-	f.DeleteSheet("Sheet1")
 	sheetName = "异常数据"
-	_, err = XlsxWriteV3(f, &list, sheetName, "./userv3.xlsx", true)
+	_, err = XlsxWriteV3(f, &list, sheetName, "./userv3.xlsx", false)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	f.DeleteSheet("Sheet1")
+	f.SaveAs("./userv3.xlsx")
 
 }

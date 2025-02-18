@@ -93,6 +93,9 @@ func XlsxWriteV3(f *excelize.File, data interface{}, sheetName string, savePath 
 	}
 
 	this := initExcel(f, sheetName)
+	if len(dataList) == 0 {
+		return f, nil
+	}
 
 	//1.处理tag标签
 	err = this.tagHandle(dataList)
