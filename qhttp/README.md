@@ -17,7 +17,7 @@ func TestGet(t *testing.T) {
 	params := map[string]interface{}{
 		"date_type": 30,
 	}
-	resp, _ := Get(urlR, params, header)
+	resp, _ := Get(urlR, params, header,0)
 	fmt.Println(string(resp))
 }
 
@@ -33,7 +33,7 @@ func TestPost(t *testing.T) {
 	data := map[string]interface{}{
 		"item_ids": 123,
 	}
-	respByte, _ := Post(urlR, params, header, data)
+	respByte, _ := Post(urlR, params, header, data,0)
 	fmt.Println(string(respByte))
 	dto := DouYinVideoDataDto{}
 	_ = jsoniter.Unmarshal(respByte, &dto)

@@ -7,9 +7,16 @@ import (
 	"net/http"
 	netUrl "net/url"
 	"strings"
+	"time"
 )
 
-func Get(url string, params, header map[string]interface{}) (resp []byte, err error) {
+/*
+retryCount 重试次数,最大值5，0不重试
+*/
+func Get(url string, params, header map[string]interface{}, retryCount int) (resp []byte, err error) {
+	if retryCount > 5 {
+		retryCount = 5
+	}
 	urlParse, _ := netUrl.Parse(url)
 	p := urlParse.Query()
 	for k, v := range params {
@@ -23,13 +30,18 @@ func Get(url string, params, header map[string]interface{}) (resp []byte, err er
 	if err != nil {
 		return
 	}
-
 	for k, v := range header {
 		req.Header.Add(k, v.(string))
 	}
+retry:
 	res, err := client.Do(req)
 	if err != nil {
 		return nil, err
+	}
+	if res.StatusCode != http.StatusOK && retryCount > 0 {
+		retryCount--
+		time.Sleep(100 * time.Millisecond)
+		goto retry
 	}
 	defer res.Body.Close()
 	body, err := io.ReadAll(res.Body)
@@ -39,7 +51,10 @@ func Get(url string, params, header map[string]interface{}) (resp []byte, err er
 	return body, nil
 }
 
-func Post(url string, params, header, data map[string]interface{}, dataIoReader io.Reader) (resp []byte, err error) {
+/*
+retryCount 重试次数,最大值5,0不重试
+*/
+func Post(url string, params, header, data map[string]interface{}, dataIoReader io.Reader, retryCount int) (resp []byte, err error) {
 	urlParse, _ := netUrl.Parse(url)
 	p := urlParse.Query()
 	for k, v := range params {
@@ -64,11 +79,17 @@ func Post(url string, params, header, data map[string]interface{}, dataIoReader 
 	for k, v := range header {
 		req.Header.Set(k, v.(string))
 	}
+retry:
 	res, err := client.Do(req)
-
 	if err != nil {
 		return nil, err
 	}
+	if res.StatusCode != http.StatusOK && retryCount > 0 {
+		retryCount--
+		time.Sleep(100 * time.Millisecond)
+		goto retry
+	}
+
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("code: %d", res.StatusCode)
@@ -80,7 +101,7 @@ func Post(url string, params, header, data map[string]interface{}, dataIoReader 
 	return body, nil
 }
 
-func Delete(url string, params, header, data map[string]interface{}, dataIoReader io.Reader) (resp []byte, err error) {
+func Delete(url string, params, header, data map[string]interface{}, dataIoReader io.Reader, retryCount int) (resp []byte, err error) {
 	urlParse, _ := netUrl.Parse(url)
 	p := urlParse.Query()
 	for k, v := range params {
@@ -106,14 +127,16 @@ func Delete(url string, params, header, data map[string]interface{}, dataIoReade
 		req.Header.Set(k, v.(string))
 	}
 	count := 0
-start:
+retry:
 	count++
 	res, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
-	if res.StatusCode != 200 && count > 5 {
-		goto start
+	if res.StatusCode != http.StatusOK && retryCount > 0 {
+		retryCount--
+		time.Sleep(100 * time.Millisecond)
+		goto retry
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
