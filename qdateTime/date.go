@@ -1,6 +1,8 @@
 package qdateTime
 
-import "time"
+import (
+	"time"
+)
 
 // GetZeroTime 获取时间的零点时间
 func GetZeroTime(timestamp int64) time.Time {
@@ -57,4 +59,13 @@ func GetRecentWeekDates(n int) [][]string {
 		now = now.AddDate(0, 0, 7)
 	}
 	return result
+}
+func GetBeijingTime() (time.Time, error) {
+	// 加载东八区时区
+	location, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		return time.Now().UTC(), err
+	}
+	now := time.Now().UTC()
+	return now.In(location), nil
 }
