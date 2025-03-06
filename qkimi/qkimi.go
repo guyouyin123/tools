@@ -30,7 +30,7 @@ messages:消息体
 model:会话模型 目前支持:moonshot-v1-8k/1M/12¥ moonshot-v1-32k/1M/24¥ moonshot-v1-128k/1M/60¥
 temperature:使用什么采样温度，介于 0 和 1 之间。较高的值（如 0.7）将使输出更加随机，而较低的值（如 0.2）将使其更加集中和确定性。
 */
-func (kimi *KiMiAi) Chat(messages []map[string]interface{}) (*ChatStruct, error) {
+func (kimi *KiMiAi) Chat(messages []map[string]interface{}, retryCount int) (*ChatStruct, error) {
 	url := kimi.BaseUrl + "/chat/completions"
 	requestBody, _ := json.Marshal(map[string]interface{}{
 		"model":       kimi.Model,
@@ -39,7 +39,7 @@ func (kimi *KiMiAi) Chat(messages []map[string]interface{}) (*ChatStruct, error)
 	})
 	header := kimi.Header
 	header["Content-Type"] = "application/json"
-	resp, err := qhttp.Post(url, nil, kimi.Header, nil, bytes.NewBuffer(requestBody))
+	resp, err := qhttp.Post(url, nil, kimi.Header, nil, bytes.NewBuffer(requestBody), retryCount)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func (kimi *KiMiAi) Chat(messages []map[string]interface{}) (*ChatStruct, error)
 }
 
 // CreateFilePath 上传本地文件
-func (kimi *KiMiAi) CreateFilePath(filePath string) (*FileCreate, error) {
+func (kimi *KiMiAi) CreateFilePath(filePath string, retryCount int) (*FileCreate, error) {
 	form := new(bytes.Buffer)
 	writer := multipart.NewWriter(form)
 	formField, err := writer.CreateFormField("purpose")
@@ -80,7 +80,7 @@ func (kimi *KiMiAi) CreateFilePath(filePath string) (*FileCreate, error) {
 	url := kimi.BaseUrl + "/files"
 	header := kimi.Header
 	header["Content-Type"] = writer.FormDataContentType()
-	resp, err := qhttp.Post(url, nil, kimi.Header, nil, form)
+	resp, err := qhttp.Post(url, nil, kimi.Header, nil, form, retryCount)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +90,7 @@ func (kimi *KiMiAi) CreateFilePath(filePath string) (*FileCreate, error) {
 }
 
 // CreateFileUrl 上传网络文件
-func (kimi *KiMiAi) CreateFileUrl(fileUrl string) (*FileCreate, error) {
+func (kimi *KiMiAi) CreateFileUrl(fileUrl string, retryCount int) (*FileCreate, error) {
 	form := new(bytes.Buffer)
 	writer := multipart.NewWriter(form)
 
@@ -142,7 +142,7 @@ func (kimi *KiMiAi) CreateFileUrl(fileUrl string) (*FileCreate, error) {
 	header := kimi.Header
 	header["Content-Type"] = writer.FormDataContentType()
 
-	resp, err := qhttp.Post(url, nil, header, nil, form)
+	resp, err := qhttp.Post(url, nil, header, nil, form, retryCount)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +158,7 @@ func (kimi *KiMiAi) CreateFileUrl(fileUrl string) (*FileCreate, error) {
 // DeleteFile 删除单个文件
 func (kimi *KiMiAi) DeleteFile(fileId string) (*DeleteFile, error) {
 	url := kimi.BaseUrl + "/files/" + fileId
-	resp, err := qhttp.Delete(url, nil, kimi.Header, nil, nil)
+	resp, err := qhttp.Delete(url, nil, kimi.Header, nil, nil, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -182,9 +182,9 @@ func (kimi *KiMiAi) DeleteFiles() {
 }
 
 // GetFileContent 图片提取文字
-func (kimi *KiMiAi) GetFileContent(fileID string) (*FileContent, error) {
+func (kimi *KiMiAi) GetFileContent(fileID string, retryCount int) (*FileContent, error) {
 	url := kimi.BaseUrl + "/files/" + fileID + "/content"
-	resp, err := qhttp.Get(url, nil, kimi.Header)
+	resp, err := qhttp.Get(url, nil, kimi.Header, retryCount)
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +196,7 @@ func (kimi *KiMiAi) GetFileContent(fileID string) (*FileContent, error) {
 // UsersMeBalance 查询余额
 func (kimi *KiMiAi) UsersMeBalance() (*Balance, error) {
 	url := kimi.BaseUrl + "/users/me/balance"
-	resp, err := qhttp.Get(url, nil, kimi.Header)
+	resp, err := qhttp.Get(url, nil, kimi.Header, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +219,7 @@ func getImageExtension(url string) string {
 // GetFiles 列举出用户已上传的所有文件
 func (kimi *KiMiAi) GetFiles() (*Files, error) {
 	url := kimi.BaseUrl + "/files"
-	resp, err := qhttp.Get(url, nil, kimi.Header)
+	resp, err := qhttp.Get(url, nil, kimi.Header, 0)
 	if err != nil {
 		return nil, err
 	}
