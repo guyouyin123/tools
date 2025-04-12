@@ -8,3 +8,6 @@ go.sum
 *.gz
 *.tar
 *.deployer
+data
+logs
+tmp
