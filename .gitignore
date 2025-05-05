@@ -11,3 +11,5 @@ go.sum
 data
 logs
 tmp
+k3s-data
+kubeconfig.yaml

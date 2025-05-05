@@ -1,0 +1,18 @@
+version: '3'
+services:
+  k3s:
+    image: rancher/k3s:v1.27.4-k3s1
+    container_name: k3s
+    privileged: true
+    volumes:
+      - ./k3s-data:/var/lib/rancher/k3s
+      - /etc/machine-id:/etc/machine-id
+      - /dev/mapper:/dev/mapper
+    ports:
+      - "6443:6443"
+      - "8080:80"
+      - "8443:443"
+    environment:
+      - K3S_KUBECONFIG_MODE=644
+      - K3S_KUBECONFIG_OUTPUT=/output/kubeconfig.yaml
+    command: server --disable traefik --disable metrics-server
