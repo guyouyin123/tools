@@ -44,7 +44,15 @@ docker cp k3s:/output/kubeconfig.yaml ./kubeconfig.yaml
 
 ```bash
 export KUBECONFIG=$(pwd)/kubeconfig.yaml
+export KUBECONFIG=/Users/jeff/myself/tools/qdocker/k3s/kubeconfig.yaml
 kubectl get nodes -A
+```
+
+## 步骤 5：开启kubectl 代理，解决 Kubernetes API 未授权问题
+便于本地调试
+```bash
+kubectl proxy --port=8080
+访问:GET http://localhost:8080/api/v1/pods
 ```
 
 ## 注意事项
