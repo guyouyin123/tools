@@ -1,7 +1,6 @@
 package qexcel
 
 import (
-	"errors"
 	"fmt"
 	"github.com/360EntSecGroup-Skylar/excelize"
 	jsoniter "github.com/json-iterator/go"
@@ -18,11 +17,13 @@ v2只支持1层嵌套，只支持excel一层合并。v3支持无级嵌套，无�
 */
 
 type Tag struct {
-	Title  string
-	Width  int
-	Column string
-	isEnum bool
-	Enum   map[string]string
+	Title     string            //标题
+	FieldName string            //结构体字段名
+	Width     int               //宽度
+	Column    string            //列名
+	isEnum    bool              //是否开启枚举值映射(自动根据Enum判断)
+	Enum      map[string]string //enum枚举值映射
+	Style     string            //样式
 }
 
 type saveExcel struct {
@@ -38,9 +39,8 @@ func initExcel(f *excelize.File, sheetName string) *saveExcel {
 	if f == nil {
 		f = excelize.NewFile()
 	}
-
 	index := f.NewSheet(sheetName)
-	//f.SetSheetName(sheetName, sheetName)
+	f.DeleteSheet("Sheet1")
 	f.SetActiveSheet(index)
 	s := &saveExcel{
 		f:         f,
@@ -66,11 +66,24 @@ ps:数组结构体需要放在最后
 
 正确事例：
 
-	type User struct {
-		Name  string `excel:"title=姓名;width=20;column=F"`
-		Age   int `excel:"title=年龄;width=20;column=B"`
-		Class []*Class
-	}
+	type like struct {
+			Like string `excel:"title=爱好;width=20;column=C;style={\"alignment\":{\"horizontal\":\"center\",\"vertical\":\"center\",\"wrap_text\":true}}"`
+		}
+		type User struct {
+			Name          string `excel:"title=姓名;width=20;column=A;style={\"alignment\":{\"horizontal\":\"center\",\"text_rotation\":45}}"`
+			Age           int    `excel:"title=年龄;width=20;column=B;"`
+			SettlementTyp int8   `excel:"title=模式;width=10;column=F;enum={\"0\":\"未知\",\"1\":\"ZX模式\",\"2\":\"Z模式\",\"3\":\"ZA模式\",\"4\":\"Z-B模式\",\"5\":\"ZX-B模式\",\"6\":\"ZX-A模式\",\"7\":\"Z-D模式\",\"8\":\"ZX-D模式\"}"`
+			Like          []*like
+		}
+
+style:
+
+	wrap_text:true //自动换行
+	vertical:"top" //垂直对齐方式
+	horizontal:"center" //居中对齐方式
+	indent:1 //缩进
+	shrink_to_fit:false //不缩小字体填充
+	text_rotation:0 //文本旋转角度
 */
 func XlsxWriteV3(f *excelize.File, data interface{}, sheetName string, savePath string, isSaveFile bool) (f2 *excelize.File, err error) {
 	dataList := make([]interface{}, 0)
@@ -161,18 +174,20 @@ func (this *saveExcel) MergeCell() {
 
 // SetStyle 设置样式
 func (this *saveExcel) SetStyle() error {
-	//增加样式--左右上下居中
-	style, err := this.f.NewStyle(`{"alignment":{"horizontal":"center","vertical":"center"}}`)
-	if err != nil {
-		return err
-	}
-
 	// 设置单元格的样式
+	//设置列样式
 	for _, v := range this.tagMap {
-		for i := 1; i <= this.row; i++ {
-			cell := v.Column + fmt.Sprintf("%d", i)
-			this.f.SetCellStyle(this.sheetName, cell, cell, style)
+		styleStr := this.tagMap[v.FieldName].Style
+		if len(styleStr) == 0 {
+			continue
 		}
+		style, err := this.f.NewStyle(styleStr)
+		if err != nil {
+			return err
+		}
+		startCell := fmt.Sprintf("%s1", v.Column)
+		endCell := fmt.Sprintf("%s%d", v.Column, this.row)
+		this.f.SetCellStyle(this.sheetName, startCell, endCell, style)
 	}
 
 	//设置标题加粗
@@ -196,49 +211,64 @@ func (this *saveExcel) tagHandle(dataList []interface{}) error {
 	return nil
 }
 
+type ExcelTag struct {
+	Title  string
+	Width  int
+	Column string
+	Style  string
+	Enum   string
+}
+
+func parseExcelTag(s string) ExcelTag {
+	tag := ExcelTag{}
+	pairs := strings.Split(s, ";")
+	for _, pair := range pairs {
+		kv := strings.SplitN(pair, "=", 2)
+		if len(kv) < 2 {
+			continue
+		}
+		key := strings.TrimSpace(kv[0])
+		value := strings.TrimSpace(kv[1])
+
+		switch key {
+		case "title":
+			tag.Title = value
+		case "width":
+			if width, err := strconv.Atoi(value); err == nil {
+				tag.Width = width
+			}
+		case "column":
+			tag.Column = value
+		case "style":
+			tag.Style = value
+		case "enum":
+			tag.Enum = value
+		}
+	}
+	return tag
+}
+
 func (this *saveExcel) fieldHandle(field reflect.StructField) error {
 	s := field.Tag.Get("excel")
-	fieldName := field.Name
-	if s == "" {
-		return nil
-	}
-	st := strings.Split(s, ";")
-	if len(st) <= 1 {
-		return errors.New("检查结构体的excel标签")
-	}
-	titleL := strings.Split(st[0], "=")
-	if len(titleL) <= 1 {
-		return errors.New("检查结构体的excel标签")
-	}
-	widthL := strings.Split(st[1], "=")
-	if len(widthL) <= 1 {
-		return errors.New("检查结构体的excel标签")
-	}
-	width, _ := strconv.Atoi(widthL[1])
-
-	columnL := strings.Split(st[2], "=")
-	if len(columnL) <= 1 {
-		return errors.New("检查结构体的excel标签")
-	}
+	tag := parseExcelTag(s)
 	dic := map[string]string{}
 	isEnum := false
-	if len(st) > 3 {
-		enumL := strings.Split(st[3], "=")
-		if len(enumL) > 1 {
-			dicStr := enumL[1]
-			_ = jsoniter.Unmarshal([]byte(dicStr), &dic)
-			isEnum = true
-		}
+	if len(tag.Enum) > 0 {
+		dicStr := tag.Enum
+		_ = jsoniter.Unmarshal([]byte(dicStr), &dic)
+		isEnum = true
 	}
 
 	t := &Tag{
-		Title:  titleL[1],
-		Width:  width,
-		Column: columnL[1],
-		isEnum: isEnum,
-		Enum:   dic,
+		Title:     tag.Title,
+		FieldName: field.Name,
+		Width:     tag.Width,
+		Column:    tag.Column,
+		isEnum:    isEnum,
+		Enum:      dic,
+		Style:     tag.Style,
 	}
-	this.tagMap[fieldName] = t
+	this.tagMap[field.Name] = t
 	return nil
 }
 

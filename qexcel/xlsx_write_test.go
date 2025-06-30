@@ -253,13 +253,20 @@ func TestWriteToXlsxV3(t *testing.T) {
 }
 
 func Test1WriteToXlsxV3(t *testing.T) {
+	/*
+		wrap_text:true //自动换行
+		vertical:"top" //垂直对齐方式
+		horizontal:"center" //居中对齐方式
+		indent:1 //缩进
+		shrink_to_fit:false //不缩小字体填充
+		text_rotation:0 //文本旋转角度
+	*/
 	type like struct {
-		Like string `excel:"title=爱好;width=20;column=C"`
+		Like string `excel:"title=爱好;width=20;column=C;style={\"alignment\":{\"horizontal\":\"center\",\"vertical\":\"center\",\"wrap_text\":true}}"`
 	}
-
 	type User struct {
-		Name          string `excel:"title=姓名;width=20;column=A"`
-		Age           int    `excel:"title=年龄;width=20;column=B"`
+		Name          string `excel:"title=姓名;width=20;column=A;style={\"alignment\":{\"horizontal\":\"center\",\"text_rotation\":45}}"`
+		Age           int    `excel:"title=年龄;width=20;column=B;"`
 		SettlementTyp int8   `excel:"title=模式;width=10;column=F;enum={\"0\":\"未知\",\"1\":\"ZX模式\",\"2\":\"Z模式\",\"3\":\"ZA模式\",\"4\":\"Z-B模式\",\"5\":\"ZX-B模式\",\"6\":\"ZX-A模式\",\"7\":\"Z-D模式\",\"8\":\"ZX-D模式\"}"`
 		Like          []*like
 	}
@@ -270,7 +277,7 @@ func Test1WriteToXlsxV3(t *testing.T) {
 			SettlementTyp: 1,
 			Like: []*like{
 				{
-					Like: "吃饭",
+					Like: "吃饭很长的描述测试自动换行，吃饭很长的描述测试自动换行，吃饭很长的描述测试自动换行",
 				},
 				{
 					Like: "睡觉",
@@ -292,20 +299,10 @@ func Test1WriteToXlsxV3(t *testing.T) {
 		},
 	}
 
-	sheetName := "正常数据"
-	f, err := XlsxWriteV3(nil, &list, sheetName, "./userv3.xlsx", false)
+	sheetName := "测试的excel"
+	_, err := XlsxWriteV3(nil, &list, sheetName, "./userv3.xlsx", true)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-
-	sheetName = "异常数据"
-	_, err = XlsxWriteV3(f, &list, sheetName, "./userv3.xlsx", false)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	f.DeleteSheet("Sheet1")
-	f.SaveAs("./userv3.xlsx")
-
 }
