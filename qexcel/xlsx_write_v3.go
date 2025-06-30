@@ -16,7 +16,7 @@ v2只支持1层嵌套，只支持excel一层合并。v3支持无级嵌套，无�
 结构体类型支持指针和非指针
 */
 
-type Tag struct {
+type tag struct {
 	Title     string            //标题
 	FieldName string            //结构体字段名
 	Width     int               //宽度
@@ -28,7 +28,7 @@ type Tag struct {
 
 type saveExcel struct {
 	f         *excelize.File
-	tagMap    map[string]*Tag
+	tagMap    map[string]*tag
 	mergeMap  map[string][][2]int //合并单元格map{"A":[[1,4],[7,10]]}
 	sheetName string
 	row       int
@@ -44,7 +44,7 @@ func initExcel(f *excelize.File, sheetName string) *saveExcel {
 	f.SetActiveSheet(index)
 	s := &saveExcel{
 		f:         f,
-		tagMap:    map[string]*Tag{},
+		tagMap:    map[string]*tag{},
 		mergeMap:  map[string][][2]int{},
 		sheetName: sheetName,
 		row:       2,
@@ -146,20 +146,20 @@ func (this *saveExcel) MergeCell() {
 	//双指针
 	sta := 0
 	end := 0
-	for _, tag := range this.tagMap {
+	for _, tagInfo := range this.tagMap {
 		for i := 2; i <= this.row; i++ {
-			cell := fmt.Sprintf("%s%d", tag.Column, i)
+			cell := fmt.Sprintf("%s%d", tagInfo.Column, i)
 			value := this.f.GetCellValue(this.sheetName, cell)
 			if value != "" {
 				if end != 0 && end > sta {
-					this.mergeMap[tag.Column] = append(this.mergeMap[tag.Column], [2]int{sta, end})
+					this.mergeMap[tagInfo.Column] = append(this.mergeMap[tagInfo.Column], [2]int{sta, end})
 					sta, end = 0, 0
 				}
 				sta = i
 			} else {
 				end = i
 				if end > sta && i == this.row {
-					this.mergeMap[tag.Column] = append(this.mergeMap[tag.Column], [2]int{sta, end})
+					this.mergeMap[tagInfo.Column] = append(this.mergeMap[tagInfo.Column], [2]int{sta, end})
 					sta, end = 0, 0
 				}
 			}
@@ -220,7 +220,7 @@ type ExcelTag struct {
 }
 
 func parseExcelTag(s string) ExcelTag {
-	tag := ExcelTag{}
+	tagInfo := ExcelTag{}
 	pairs := strings.Split(s, ";")
 	for _, pair := range pairs {
 		kv := strings.SplitN(pair, "=", 2)
@@ -232,41 +232,41 @@ func parseExcelTag(s string) ExcelTag {
 
 		switch key {
 		case "title":
-			tag.Title = value
+			tagInfo.Title = value
 		case "width":
 			if width, err := strconv.Atoi(value); err == nil {
-				tag.Width = width
+				tagInfo.Width = width
 			}
 		case "column":
-			tag.Column = value
+			tagInfo.Column = value
 		case "style":
-			tag.Style = value
+			tagInfo.Style = value
 		case "enum":
-			tag.Enum = value
+			tagInfo.Enum = value
 		}
 	}
-	return tag
+	return tagInfo
 }
 
 func (this *saveExcel) fieldHandle(field reflect.StructField) error {
 	s := field.Tag.Get("excel")
-	tag := parseExcelTag(s)
+	tagInfo := parseExcelTag(s)
 	dic := map[string]string{}
 	isEnum := false
-	if len(tag.Enum) > 0 {
-		dicStr := tag.Enum
+	if len(tagInfo.Enum) > 0 {
+		dicStr := tagInfo.Enum
 		_ = jsoniter.Unmarshal([]byte(dicStr), &dic)
 		isEnum = true
 	}
 
-	t := &Tag{
-		Title:     tag.Title,
+	t := &tag{
+		Title:     tagInfo.Title,
 		FieldName: field.Name,
-		Width:     tag.Width,
-		Column:    tag.Column,
+		Width:     tagInfo.Width,
+		Column:    tagInfo.Column,
 		isEnum:    isEnum,
 		Enum:      dic,
-		Style:     tag.Style,
+		Style:     tagInfo.Style,
 	}
 	this.tagMap[field.Name] = t
 	return nil

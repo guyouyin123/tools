@@ -25,7 +25,7 @@ func XlsxWriteV1(dataList []interface{}, sheetName string, savePath string, isSa
 	//2.处理tag标签
 	t := reflect.TypeOf(dataList[0])
 	titleCount := t.NumField()
-	tagMap := map[string]*Tag{}
+	tagMap := map[string]*tag{}
 	for i := 0; i < titleCount; i++ {
 		s := t.Field(i).Tag.Get("excel")
 		st := strings.Split(s, ";")
@@ -35,12 +35,12 @@ func XlsxWriteV1(dataList []interface{}, sheetName string, savePath string, isSa
 		title := strings.Split(st[0], "=")[1]
 		width, _ := strconv.Atoi(strings.Split(st[1], "=")[1])
 		column := strings.Split(st[2], "=")[1]
-		tag := &Tag{
+		tagInfo := &tag{
 			Title:  title,
 			Width:  width,
 			Column: column,
 		}
-		tagMap[column] = tag
+		tagMap[column] = tagInfo
 	}
 
 	titleColumnList := []string{}
@@ -60,12 +60,12 @@ func XlsxWriteV1(dataList []interface{}, sheetName string, savePath string, isSa
 	row := sheet.AddRow()
 	cell := row.AddCell()
 	for index, titleTypeName := range titleColumnList {
-		tag, ok := tagMap[titleTypeName]
+		tagInfo, ok := tagMap[titleTypeName]
 		if !ok {
 			nilMap[index] = struct{}{}
 		} else {
-			sheet.SetColWidth(index, index, float64(tag.Width))
-			cell.Value = tag.Title
+			sheet.SetColWidth(index, index, float64(tagInfo.Width))
+			cell.Value = tagInfo.Title
 		}
 		cell = row.AddCell()
 	}
@@ -124,7 +124,7 @@ func XlsxWriteV2(dataList []interface{}, sheetName string, savePath string, isSa
 	}
 
 	titleCount := vaType.NumField()
-	tagMap := map[string]*Tag{}
+	tagMap := map[string]*tag{}
 	mergeList := make([]string, 0)
 	for i := 0; i < titleCount; i++ {
 		field := vaType.Field(i)
@@ -145,7 +145,7 @@ func XlsxWriteV2(dataList []interface{}, sheetName string, savePath string, isSa
 				title := strings.Split(st[0], "=")[1]
 				width, _ := strconv.Atoi(strings.Split(st[1], "=")[1])
 				column := strings.Split(st[2], "=")[1]
-				t := &Tag{
+				t := &tag{
 					Title:  title,
 					Width:  width,
 					Column: column,
@@ -165,7 +165,7 @@ func XlsxWriteV2(dataList []interface{}, sheetName string, savePath string, isSa
 			width, _ := strconv.Atoi(strings.Split(st[1], "=")[1])
 			column := strings.Split(st[2], "=")[1]
 			fieldName := vaType.Field(i).Name
-			t := &Tag{
+			t := &tag{
 				Title:  title,
 				Width:  width,
 				Column: column,

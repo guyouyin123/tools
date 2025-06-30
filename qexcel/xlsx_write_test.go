@@ -254,18 +254,26 @@ func TestWriteToXlsxV3(t *testing.T) {
 
 func Test1WriteToXlsxV3(t *testing.T) {
 	/*
-		wrap_text:true //自动换行
-		vertical:"top" //垂直对齐方式
-		horizontal:"center" //居中对齐方式
-		indent:1 //缩进
-		shrink_to_fit:false //不缩小字体填充
-		text_rotation:0 //文本旋转角度
+			wrap_text:true //自动换行
+			vertical:"top" //垂直对齐方式
+			horizontal:"center" //居中对齐方式
+			indent:1 //缩进
+			shrink_to_fit:false //不缩小字体填充
+			text_rotation:0 //文本旋转角度
+		"font": {
+		    "color": "#FF0000" //字体颜色
+		  },
+		  "fill": {
+		    "type": "pattern",
+		    "color": ["#FFFF00"], //背景颜色
+		    "pattern": 1
+		  }
 	*/
 	type like struct {
 		Like string `excel:"title=爱好;width=20;column=C;style={\"alignment\":{\"horizontal\":\"center\",\"vertical\":\"center\",\"wrap_text\":true}}"`
 	}
 	type User struct {
-		Name          string `excel:"title=姓名;width=20;column=A;style={\"alignment\":{\"horizontal\":\"center\",\"text_rotation\":45}}"`
+		Name          string `excel:"title=姓名;width=20;column=A;style={\"alignment\":{\"horizontal\":\"center\",\"text_rotation\":45},\"font\":{\"color\":\"#FF0000\"},\"fill\":{\"type\":\"pattern\",\"color\":[\"#FFFF00\"],\"pattern\":1}}"`
 		Age           int    `excel:"title=年龄;width=20;column=B;"`
 		SettlementTyp int8   `excel:"title=模式;width=10;column=F;enum={\"0\":\"未知\",\"1\":\"ZX模式\",\"2\":\"Z模式\",\"3\":\"ZA模式\",\"4\":\"Z-B模式\",\"5\":\"ZX-B模式\",\"6\":\"ZX-A模式\",\"7\":\"Z-D模式\",\"8\":\"ZX-D模式\"}"`
 		Like          []*like
