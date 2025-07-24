@@ -24,6 +24,7 @@ type tag struct {
 	isEnum    bool              //是否开启枚举值映射(自动根据Enum判断)
 	Enum      map[string]string //enum枚举值映射
 	Style     string            //样式
+	IsMerge   bool              //是否合并单元格
 }
 
 type saveExcel struct {
@@ -40,7 +41,9 @@ func initExcel(f *excelize.File, sheetName string) *saveExcel {
 		f = excelize.NewFile()
 	}
 	index := f.NewSheet(sheetName)
-	f.DeleteSheet("Sheet1")
+	if sheetName != "Sheet1" {
+		f.DeleteSheet("Sheet1")
+	}
 	f.SetActiveSheet(index)
 	s := &saveExcel{
 		f:         f,
@@ -86,6 +89,13 @@ style:
 	text_rotation:0 //文本旋转角度
 */
 func XlsxWriteV3(f *excelize.File, data interface{}, sheetName string, savePath string, isSaveFile bool) (f2 *excelize.File, err error) {
+	defer func() {
+		if e := recover(); e != nil {
+			err = fmt.Errorf("panic occurred: %v", e)
+			return
+		}
+	}()
+
 	dataList := make([]interface{}, 0)
 	t := reflect.TypeOf(data)
 	if t.Kind() == reflect.Ptr {
@@ -125,7 +135,7 @@ func XlsxWriteV3(f *excelize.File, data interface{}, sheetName string, savePath 
 	this.WriteDate(dataList)
 
 	//4.处理合并单元格
-	this.MergeCell()
+	this.MergeCell(dataList)
 	//5.处理样式
 	err = this.SetStyle()
 	if err != nil {
@@ -142,34 +152,135 @@ func XlsxWriteV3(f *excelize.File, data interface{}, sheetName string, savePath 
 }
 
 // MergeCell 合并单元格
-func (this *saveExcel) MergeCell() {
-	//双指针
-	sta := 0
-	end := 0
-	for _, tagInfo := range this.tagMap {
-		for i := 2; i <= this.row; i++ {
-			cell := fmt.Sprintf("%s%d", tagInfo.Column, i)
-			value := this.f.GetCellValue(this.sheetName, cell)
-			if value != "" {
-				if end != 0 && end > sta {
-					this.mergeMap[tagInfo.Column] = append(this.mergeMap[tagInfo.Column], [2]int{sta, end})
-					sta, end = 0, 0
-				}
-				sta = i
+func (this *saveExcel) MergeCell(dataList []interface{}) {
+	this.SetMergeMap2(dataList)
+	for column, mergeL := range this.mergeMap {
+		for _, merge := range mergeL {
+			rowSta := fmt.Sprintf("%s%d", column, merge[0])
+			rowEnd := fmt.Sprintf("%s%d", column, merge[1])
+			this.f.MergeCell(this.sheetName, rowSta, rowEnd)
+		}
+	}
+}
+func (this *saveExcel) SetMergeMap(data interface{}) {
+	mergeMap := make(map[string][]int)
+	mergeMap2 := make(map[string][][2]int)
+	val := reflect.ValueOf(data)
+	if val.Kind() != reflect.Slice {
+		return
+	}
+	// 遍历每一行数据
+	for i := 0; i < val.Len(); i++ {
+		item := val.Index(i).Interface()
+		itemVal := reflect.ValueOf(item)
+		if itemVal.Kind() == reflect.Ptr {
+			itemVal = itemVal.Elem()
+		}
+
+		// 获取 FriendList 的长度
+		friendList := itemVal.FieldByName("FriendList")
+		friendCount := 0
+		if friendList.IsValid() && friendList.Kind() == reflect.Slice {
+			friendCount = friendList.Len()
+		}
+
+		// 处理每个列
+		for _, tagInfo := range this.tagMap {
+			if !tagInfo.IsMerge {
+				continue
+			}
+			column := tagInfo.Column
+			if friendCount > 0 {
+				mergeMap[column] = append(mergeMap[column], friendCount)
 			} else {
-				end = i
-				if end > sta && i == this.row {
-					this.mergeMap[tagInfo.Column] = append(this.mergeMap[tagInfo.Column], [2]int{sta, end})
-					sta, end = 0, 0
-				}
+				mergeMap[column] = append(mergeMap[column], 1)
 			}
 		}
 	}
-	for column, mergeL := range this.mergeMap {
-		for _, merge := range mergeL {
-			this.f.MergeCell(this.sheetName, fmt.Sprintf("%s%d", column, merge[0]), fmt.Sprintf("%s%d", column, merge[1]))
+	for column, li := range mergeMap {
+		index := 2
+		for _, v := range li {
+			sta := index
+			end := v + index - 1
+			mergeMap2[column] = append(mergeMap2[column], [2]int{sta, end})
+			index = end + 1
 		}
 	}
+	this.mergeMap = mergeMap2
+}
+
+func (this *saveExcel) SetMergeMap2(data interface{}) {
+	mergeMap := make(map[string][]int)
+	mergeMap2 := make(map[string][][2]int)
+	val := reflect.ValueOf(data)
+	if val.Kind() != reflect.Slice {
+		return
+	}
+	if val.Len() == 0 {
+		return
+	}
+
+	// 获取第一个元素的类型信息
+	firstItem := val.Index(0).Interface()
+	firstItemVal := reflect.ValueOf(firstItem)
+	if firstItemVal.Kind() == reflect.Ptr {
+		firstItemVal = firstItemVal.Elem()
+	}
+	firstItemType := firstItemVal.Type()
+
+	// 动态查找切片字段
+	sliceFieldNameList := make([]string, 0)
+	for i := 0; i < firstItemType.NumField(); i++ {
+		field := firstItemType.Field(i)
+		if field.Type.Kind() == reflect.Slice {
+			sliceFieldNameList = append(sliceFieldNameList, field.Name)
+		}
+	}
+
+	// 处理每一行数据
+	for i := 0; i < val.Len(); i++ {
+		item := val.Index(i).Interface()
+		itemVal := reflect.ValueOf(item)
+		if itemVal.Kind() == reflect.Ptr {
+			itemVal = itemVal.Elem()
+		}
+
+		// 动态获取切片字段的长度
+		count := 0
+		for _, sliceFieldName := range sliceFieldNameList {
+			sliceField := itemVal.FieldByName(sliceFieldName)
+			if sliceField.IsValid() && sliceField.Kind() == reflect.Slice {
+				countPre := sliceField.Len()
+				if countPre > count {
+					count = countPre
+				}
+			}
+		}
+
+		// 处理每个列
+		for _, tagInfo := range this.tagMap {
+			if !tagInfo.IsMerge {
+				continue
+			}
+			column := tagInfo.Column
+			if count > 0 {
+				mergeMap[column] = append(mergeMap[column], count)
+			} else {
+				mergeMap[column] = append(mergeMap[column], 1)
+			}
+		}
+	}
+	for column, li := range mergeMap {
+		index := 2
+		for _, v := range li {
+			sta := index
+			end := v + index - 1
+			mergeMap2[column] = append(mergeMap2[column], [2]int{sta, end})
+			index = end + 1
+		}
+	}
+	this.mergeMap = mergeMap2
+	return
 }
 
 // SetStyle 设置样式
@@ -212,11 +323,12 @@ func (this *saveExcel) tagHandle(dataList []interface{}) error {
 }
 
 type ExcelTag struct {
-	Title  string
-	Width  int
-	Column string
-	Style  string
-	Enum   string
+	Title   string
+	Width   int
+	Column  string
+	Style   string
+	Enum    string
+	IsMerge bool
 }
 
 func parseExcelTag(s string) ExcelTag {
@@ -243,6 +355,10 @@ func parseExcelTag(s string) ExcelTag {
 			tagInfo.Style = value
 		case "enum":
 			tagInfo.Enum = value
+		case "IsMerge":
+			if value == "true" {
+				tagInfo.IsMerge = true
+			}
 		}
 	}
 	return tagInfo
@@ -250,6 +366,9 @@ func parseExcelTag(s string) ExcelTag {
 
 func (this *saveExcel) fieldHandle(field reflect.StructField) error {
 	s := field.Tag.Get("excel")
+	if s == "" {
+		return nil
+	}
 	tagInfo := parseExcelTag(s)
 	dic := map[string]string{}
 	isEnum := false
@@ -267,6 +386,7 @@ func (this *saveExcel) fieldHandle(field reflect.StructField) error {
 		isEnum:    isEnum,
 		Enum:      dic,
 		Style:     tagInfo.Style,
+		IsMerge:   tagInfo.IsMerge,
 	}
 	this.tagMap[field.Name] = t
 	return nil
@@ -293,8 +413,9 @@ start:
 			if baseVa.Kind() == reflect.Ptr {
 				sliceVal = baseVa.Elem().Field(i)
 			} else {
-				sliceVal = baseVa.Field(i)
+				sliceVal = baseVa.Field(0)
 			}
+
 			le := sliceVal.Len()
 			if le == 0 {
 				vaType = field.Type.Elem()
@@ -309,6 +430,7 @@ start:
 					return err
 				}
 			}
+
 		case reflect.Struct, reflect.Ptr:
 			//处理嵌套结构体
 			nestedVal := baseVa.Field(i)
@@ -384,6 +506,7 @@ func (this *saveExcel) writeExcel(field reflect.StructField, elemSliceObj, vaFie
 		this.addRow = false
 	} else {
 		this.write(field, vaField)
+		this.addRow = false
 	}
 }
 

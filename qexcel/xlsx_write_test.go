@@ -142,13 +142,18 @@ func TestExportCsv(t *testing.T) {
 
 func TestWriteToXlsxV2_1(t *testing.T) {
 	type User struct {
-		UserId   int    `excel:"title=用户id;width=20;column=A"`
-		UserName string `excel:"title=用户名称;width=20;column=B"`
+		UserId   int    `excel:"title=用户id;width=20;column=B"`
+		UserName string `excel:"title=用户名称;width=20;column=C"`
+	}
+	type User2 struct {
+		UserId2   int    `excel:"title=用户id;width=20;column=D"`
+		UserName2 string `excel:"title=用户名称;width=20;column=E"`
 	}
 
 	type UserBase struct {
 		BossId int64 `excel:"title=大佬;width=20;column=A"`
 		Data   []*User
+		Data2  []*User2
 	}
 	a := &User{
 		UserId:   1,
@@ -274,8 +279,8 @@ func Test1WriteToXlsxV3(t *testing.T) {
 	}
 	type User struct {
 		Name          string `excel:"title=姓名;width=20;column=A;style={\"alignment\":{\"horizontal\":\"center\",\"text_rotation\":45},\"font\":{\"color\":\"#FF0000\"},\"fill\":{\"type\":\"pattern\",\"color\":[\"#FFFF00\"],\"pattern\":1}}"`
-		Age           int    `excel:"title=年龄;width=20;column=B;"`
-		SettlementTyp int8   `excel:"title=模式;width=10;column=F;enum={\"0\":\"未知\",\"1\":\"ZX模式\",\"2\":\"Z模式\",\"3\":\"ZA模式\",\"4\":\"Z-B模式\",\"5\":\"ZX-B模式\",\"6\":\"ZX-A模式\",\"7\":\"Z-D模式\",\"8\":\"ZX-D模式\"}"`
+		Age           int
+		SettlementTyp int8 `excel:"title=模式;width=10;column=F;enum={\"0\":\"未知\",\"1\":\"ZX模式\",\"2\":\"Z模式\",\"3\":\"ZA模式\",\"4\":\"Z-B模式\",\"5\":\"ZX-B模式\",\"6\":\"ZX-A模式\",\"7\":\"Z-D模式\",\"8\":\"ZX-D模式\"}"`
 		Like          []*like
 	}
 	list := []*User{
@@ -309,6 +314,106 @@ func Test1WriteToXlsxV3(t *testing.T) {
 
 	sheetName := "测试的excel"
 	_, err := XlsxWriteV3(nil, &list, sheetName, "./userv3.xlsx", true)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+}
+
+func TestDemo1ToXlsxV3(t *testing.T) {
+	type AbnormalInfo struct {
+		AbnormalClass         int64  `excel:"title=异常类型;width=20;column=F;"`
+		AbnormalType          int64  //异常指标
+		AbnormalName          string `excel:"title=异常指标;width=20;column=G;"`
+		AbnormalValue         string `excel:"title=值;width=20;column=H;"`
+		Money                 int64  `excel:"title=金额;width=20;column=I;"`
+		Status                int64  `excel:"title=预开状态;width=20;column=J;"`
+		WdServiceStatisticsID int64  //罚单id
+	}
+	type FineForBrokerRecordList struct {
+		WdServiceStatisticsId int64  //罚单id
+		DayDt                 string `excel:"title=日期;width=20;column=A;"`
+		DayDtYear             string //罚单所属日期
+		MiddleAreaName        string `excel:"title=中小区;width=20;column=B;"`
+		AreaName              string `excel:"title=小区;width=20;column=C;"`
+		StoreName             string `excel:"title=门店;width=20;column=D;"`
+		BrokerUserId          int64  //经纪人id
+		BrokerName            string `excel:"title=经纪人姓名;width=20;column=E;"`
+		BrokerReaName         string //经纪人姓名
+		Msg                   string //理由
+		Replay                string `excel:"title=数据复盘;width=20;column=K;"`
+		Reason                string `excel:"title=原因;width=20;column=L;"`
+		Scheme                string `excel:"title=方案;width=20;column=M;"`
+		Abnormal              []*AbnormalInfo
+	}
+
+	a := AbnormalInfo{
+		AbnormalClass:         1,
+		AbnormalType:          1,
+		AbnormalName:          "1",
+		AbnormalValue:         "1",
+		Money:                 1,
+		Status:                1,
+		WdServiceStatisticsID: 1,
+	}
+
+	b := FineForBrokerRecordList{
+		WdServiceStatisticsId: 1,
+		DayDt:                 "1",
+		DayDtYear:             "1",
+		MiddleAreaName:        "1",
+		AreaName:              "1",
+		StoreName:             "1",
+		BrokerUserId:          1,
+		BrokerName:            "1",
+		BrokerReaName:         "1",
+		Abnormal:              []*AbnormalInfo{&a, &a},
+		Msg:                   "1",
+	}
+	list := []*FineForBrokerRecordList{&b, &b, &b, &b, &b, &b, &b, &b}
+
+	sheetName := "测试的excel"
+	_, err := XlsxWriteV3(nil, &list, sheetName, "./record.xlsx", true)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+}
+
+func TestDemo1(t *testing.T) {
+	type Friend struct {
+		FrName string `excel:"title=女朋友们;width=20;column=C;"`
+	}
+	type User struct {
+		Name       string `excel:"title=姓名;width=20;column=A;IsMerge=true"`
+		Age        int64  `excel:"title=年龄;width=20;column=B;IsMerge=true"`
+		IdCard     int64  `excel:"title=身份证;width=20;column=D;IsMerge=true"`
+		FriendList []*Friend
+	}
+
+	f1 := Friend{
+		FrName: "杨贵妃",
+	}
+	f2 := Friend{
+		FrName: "三上",
+	}
+	f3 := Friend{
+		FrName: "小优",
+	}
+	Jeff := User{
+		Name:       "Jeff",
+		Age:        18,
+		FriendList: []*Friend{&f1, &f2, &f3},
+	}
+	Jeff2 := User{
+		Name:       "Jeff2",
+		Age:        20,
+		FriendList: []*Friend{&f1, &f2},
+	}
+	list := []*User{&Jeff, &Jeff2}
+
+	sheetName := "测试的excel"
+	_, err := XlsxWriteV3(nil, &list, sheetName, "./record.xlsx", true)
 	if err != nil {
 		fmt.Println(err)
 		return
