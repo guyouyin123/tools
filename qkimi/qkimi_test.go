@@ -20,11 +20,11 @@ func Test_ImagePath(t *testing.T) {
 	filePath := "/图片9.png"
 	isDelete := false //测试可以为false，产线必须为true
 
-	cInfo, err := kimi.CreateFilePath(filePath)
+	cInfo, err := kimi.CreateFilePath(filePath, 1)
 	if err != nil {
 		return
 	}
-	fileContent, err := kimi.GetFileContent(cInfo.Id)
+	fileContent, err := kimi.GetFileContent(cInfo.Id, 1)
 	if err != nil {
 		return
 	}
@@ -39,7 +39,7 @@ func Test_ImagePath(t *testing.T) {
 		},
 		{"role": "user", "content": "帮我从文字中提取工号,以workNumber=形式输出"},
 	}
-	chatData, err := kimi.Chat(messages)
+	chatData, err := kimi.Chat(messages, 1)
 	if err != nil {
 		return
 	}
@@ -65,11 +65,11 @@ func Test_ImageUrl(t *testing.T) {
 	kimi := &KiMiAi{}
 	kimi.InitKiMiAi(apiKey, model, temperature)
 
-	cInfo, err := kimi.CreateFileUrl(imgUrl)
+	cInfo, err := kimi.CreateFileUrl(imgUrl, 1)
 	if err != nil {
 		return
 	}
-	fileContent, err := kimi.GetFileContent(cInfo.Id)
+	fileContent, err := kimi.GetFileContent(cInfo.Id, 1)
 	if err != nil {
 		return
 	}
@@ -84,7 +84,7 @@ func Test_ImageUrl(t *testing.T) {
 		},
 		{"role": "user", "content": "帮我从文字中提取工号,以workNumber=形式输出"},
 	}
-	chatData, err := kimi.Chat(messages)
+	chatData, err := kimi.Chat(messages, 1)
 	if err != nil {
 		return
 	}
@@ -128,7 +128,7 @@ func Test_chat(t *testing.T) {
 		},
 		{"role": "user", "content": "告诉我如何选股"},
 	}
-	resp, err := kimi.Chat(messages)
+	resp, err := kimi.Chat(messages, 1)
 	if err != nil {
 		return
 	}
