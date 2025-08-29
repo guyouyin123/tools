@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/360EntSecGroup-Skylar/excelize"
+	"github.com/spf13/cast"
 	"github.com/tealeg/xlsx"
 	"reflect"
 	"strconv"
@@ -37,7 +38,7 @@ func XlsxWriteV1(dataList []interface{}, sheetName string, savePath string, isSa
 		column := strings.Split(st[2], "=")[1]
 		tagInfo := &tag{
 			Title:  title,
-			Width:  width,
+			Width:  cast.ToFloat64(width),
 			Column: column,
 		}
 		tagMap[column] = tagInfo
@@ -147,7 +148,7 @@ func XlsxWriteV2(dataList []interface{}, sheetName string, savePath string, isSa
 				column := strings.Split(st[2], "=")[1]
 				t := &tag{
 					Title:  title,
-					Width:  width,
+					Width:  cast.ToFloat64(width),
 					Column: column,
 				}
 				tagMap[name] = t
@@ -167,7 +168,7 @@ func XlsxWriteV2(dataList []interface{}, sheetName string, savePath string, isSa
 			fieldName := vaType.Field(i).Name
 			t := &tag{
 				Title:  title,
-				Width:  width,
+				Width:  cast.ToFloat64(width),
 				Column: column,
 			}
 			tagMap[fieldName] = t

@@ -1,6 +1,6 @@
 module github.com/guyouyin123/tools
 
-go 1.20
+go 1.21.0
 
 require (
 	github.com/360EntSecGroup-Skylar/excelize v1.4.1
@@ -46,7 +46,7 @@ require (
 	github.com/hashicorp/serf v0.10.1 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
-	github.com/kr/pretty v0.2.1 // indirect
+	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/leodido/go-urn v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
@@ -57,6 +57,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/smartystreets/goconvey v1.6.4 // indirect
+	github.com/spf13/cast v1.9.2 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.7.0 // indirect

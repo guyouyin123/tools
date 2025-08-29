@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"github.com/360EntSecGroup-Skylar/excelize"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/spf13/cast"
 	"reflect"
-	"strconv"
 	"strings"
 )
 
@@ -19,7 +19,7 @@ v2只支持1层嵌套，只支持excel一层合并。v3支持无级嵌套，无�
 type tag struct {
 	Title     string            //标题
 	FieldName string            //结构体字段名
-	Width     int               //宽度
+	Width     float64           //宽度
 	Column    string            //列名
 	isEnum    bool              //是否开启枚举值映射(自动根据Enum判断)
 	Enum      map[string]string //enum枚举值映射
@@ -128,7 +128,7 @@ func XlsxWriteV3(f *excelize.File, data interface{}, sheetName string, savePath 
 	//2.处理title
 	for _, v := range this.tagMap {
 		this.f.SetCellValue(this.sheetName, fmt.Sprintf("%s%d", v.Column, 1), v.Title)
-		this.f.SetColWidth(this.sheetName, v.Column, v.Column, float64(v.Width))
+		this.f.SetColWidth(this.sheetName, v.Column, v.Column, v.Width)
 	}
 
 	//3.写入数据
@@ -324,7 +324,7 @@ func (this *saveExcel) tagHandle(dataList []interface{}) error {
 
 type ExcelTag struct {
 	Title   string
-	Width   int
+	Width   float64
 	Column  string
 	Style   string
 	Enum    string
@@ -346,9 +346,7 @@ func parseExcelTag(s string) ExcelTag {
 		case "title":
 			tagInfo.Title = value
 		case "width":
-			if width, err := strconv.Atoi(value); err == nil {
-				tagInfo.Width = width
-			}
+			tagInfo.Width = cast.ToFloat64(value)
 		case "column":
 			tagInfo.Column = value
 		case "style":

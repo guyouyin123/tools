@@ -385,7 +385,7 @@ func TestDemo1(t *testing.T) {
 		FrName string `excel:"title=女朋友们;width=20;column=C;"`
 	}
 	type User struct {
-		Name       string `excel:"title=姓名;width=20;column=A;IsMerge=true"`
+		Name       string `excel:"title=姓名;width=20.5;column=A;IsMerge=true"`
 		Age        int64  `excel:"title=年龄;width=20;column=B;IsMerge=true"`
 		IdCard     int64  `excel:"title=身份证;width=20;column=D;IsMerge=true"`
 		FriendList []*Friend
