@@ -2,6 +2,7 @@ package qexcel
 
 import (
 	"fmt"
+	jsoniter "github.com/json-iterator/go"
 	"os"
 	"testing"
 	"time"
@@ -419,3 +420,46 @@ func TestDemo1(t *testing.T) {
 		return
 	}
 }
+
+func TestDemo2(t *testing.T) {
+	type AbnormalInfo struct {
+		//WdServiceStatisticsID int64 `excel:"title=ID;width=12.28;column=O;"` //罚单id
+		WdServiceStatisticsID int64  //罚单id
+		AbnormalClass         int64  `excel:"title=异常类型;width=12.28;column=F;"` //异常类型 1工作量 2服务质量
+		AbnormalType          int64  //异常指标
+		AbnormalName          string `excel:"title=异常指标;width=21.8;column=G;"` //异常名称
+		FineValue             string `excel:"title=标准;width=7.74;column=H;"`
+		AbnormalValue         string `excel:"title=值;width=7.74;column=I;"`    //异常值
+		Money                 int64  `excel:"title=金额;width=7.74;column=J;"`   //金额(单位分)
+		Status                int64  `excel:"title=预开状态;width=7.74;column=K;"` //罚单状态 -1不满足 1未开 2已撤销 3已开 999 全部
+	}
+	type FineForBrokerRecordList struct {
+		WdServiceStatisticsId int64  //罚单id
+		DayDt                 string `excel:"title=日期;width=7.28;column=A;IsMerge=true;style={\"alignment\":{\"horizontal\":\"left\",\"vertical\":\"top\",\"wrap_text\":true}}"`
+		DayDtYear             string //罚单所属日期
+		MiddleAreaName        string `excel:"title=中小区;width=7.28;column=B;IsMerge=true;style={\"alignment\":{\"horizontal\":\"left\",\"vertical\":\"top\",\"wrap_text\":true}}"`
+		AreaName              string `excel:"title=小区;width=7.28;column=C;IsMerge=true;style={\"alignment\":{\"horizontal\":\"left\",\"vertical\":\"top\",\"wrap_text\":true}}"`
+		StoreName             string `excel:"title=门店;width=12.28;column=D;IsMerge=true;style={\"alignment\":{\"horizontal\":\"left\",\"vertical\":\"top\",\"wrap_text\":true}}"`
+		BrokerUserId          int64  //经纪人id
+		BrokerName            string `excel:"title=经纪人;width=12.28;column=E;IsMerge=true;style={\"alignment\":{\"horizontal\":\"left\",\"vertical\":\"top\",\"wrap_text\":true}}"`
+		BrokerReaName         string //经纪人姓名
+		Msg                   string //理由
+		Replay                string `excel:"title=数据复盘;width=23.8;column=L;IsMerge=true;style={\"alignment\":{\"horizontal\":\"left\",\"vertical\":\"top\",\"wrap_text\":true}}"`
+		Reason                string `excel:"title=原因;width=23.8;column=M;IsMerge=true;style={\"alignment\":{\"horizontal\":\"left\",\"vertical\":\"top\",\"wrap_text\":true}}"`
+		Scheme                string `excel:"title=方案;width=23.8;column=N;IsMerge=true;style={\"alignment\":{\"horizontal\":\"left\",\"vertical\":\"top\",\"wrap_text\":true}}"`
+		AppealStatus          int64  //申诉状态 0未申诉 1已申诉
+		Abnormal              []*AbnormalInfo
+	}
+
+	list := []*FineForBrokerRecordList{}
+	jsoniter.Unmarshal([]byte(dataStr), &list)
+
+	sheetName := "测试excel"
+	_, err := XlsxWriteV3(nil, &list, sheetName, "./test.xlsx", true)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+}
+
+const dataStr = `[{}]`

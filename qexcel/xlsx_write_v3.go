@@ -58,28 +58,7 @@ func initExcel(f *excelize.File, sheetName string) *saveExcel {
 
 /*
 XlsxWriteV3 写入xlsx
-ps:数组结构体需要放在最后
-错误事例：
-
-	type User struct {
-		Name  string `excel:"title=姓名;width=20;column=F"`
-		Class []*Class
-		Age   int `excel:"title=年龄;width=20;column=B"`
-	}
-
-正确事例：
-
-	type like struct {
-			Like string `excel:"title=爱好;width=20;column=C;style={\"alignment\":{\"horizontal\":\"center\",\"vertical\":\"center\",\"wrap_text\":true}}"`
-		}
-		type User struct {
-			Name          string `excel:"title=姓名;width=20;column=A;style={\"alignment\":{\"horizontal\":\"center\",\"text_rotation\":45}}"`
-			Age           int    `excel:"title=年龄;width=20;column=B;"`
-			SettlementTyp int8   `excel:"title=模式;width=10;column=F;enum={\"0\":\"未知\",\"1\":\"ZX模式\",\"2\":\"Z模式\",\"3\":\"ZA模式\",\"4\":\"Z-B模式\",\"5\":\"ZX-B模式\",\"6\":\"ZX-A模式\",\"7\":\"Z-D模式\",\"8\":\"ZX-D模式\"}"`
-			Like          []*like
-		}
-
-style:
+style:样式
 
 	wrap_text:true //自动换行
 	vertical:"top" //垂直对齐方式
@@ -87,6 +66,12 @@ style:
 	indent:1 //缩进
 	shrink_to_fit:false //不缩小字体填充
 	text_rotation:0 //文本旋转角度
+
+title:标题
+width:列宽
+column:所属列
+IsMerge:true 开启单元格自动合并
+enum:枚举值
 */
 func XlsxWriteV3(f *excelize.File, data interface{}, sheetName string, savePath string, isSaveFile bool) (f2 *excelize.File, err error) {
 	defer func() {
@@ -494,7 +479,8 @@ func (this *saveExcel) writeExcel(field reflect.StructField, elemSliceObj, vaFie
 			if elemObj.Kind() == reflect.Ptr {
 				elemObj = elemObj.Elem()
 			}
-			for i := 0; i < elemObj.NumField(); i++ {
+			k := elemObj.NumField()
+			for i := 0; i < k; i++ {
 				field2 := elemObj.Type().Field(i)
 				vaField2 := elemObj.Field(i)
 				this.writeExcel(field2, elemObj, vaField2)
@@ -503,17 +489,18 @@ func (this *saveExcel) writeExcel(field reflect.StructField, elemSliceObj, vaFie
 		}
 		this.addRow = false
 	} else {
-		this.write(field, vaField)
-		this.addRow = false
+		if this.write(field, vaField) {
+			this.addRow = false
+		}
 	}
 }
 
-func (this *saveExcel) write(field reflect.StructField, vaField reflect.Value) {
+func (this *saveExcel) write(field reflect.StructField, vaField reflect.Value) bool {
 	fileValue := vaField.Interface()
 	fieldName := field.Name
 	tagInfo, ok := this.tagMap[fieldName]
 	if !ok {
-		return
+		return false
 	}
 	if this.addRow {
 		this.row++
@@ -529,6 +516,7 @@ func (this *saveExcel) write(field reflect.StructField, vaField reflect.Value) {
 	}
 	pos := fmt.Sprintf("%s%d", tagInfo.Column, this.row)
 	this.f.SetCellValue(this.sheetName, pos, fileValue)
+	return true
 }
 
 func isIntType(kind reflect.Kind) bool {
