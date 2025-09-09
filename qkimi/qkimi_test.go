@@ -7,11 +7,11 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"unicode"
 )
 
 var (
-	apiKey = ""
-	//model       = "moonshot-v1-8k"
+	apiKey      = ""
 	model       = "moonshot-v1-8k-vision-preview"
 	temperature = float32(0.1)
 )
@@ -85,11 +85,10 @@ func imageToBase64(url string) (string, error) {
 	return imageBase64Str, nil
 }
 
-func Test_ImageUrl(t *testing.T) {
-	imgUrl := "http://woda-app-public.oss-cn-shanghai.aliyuncs.com/zxx/WorkCard/288bd33f-cf57-4fe4-8be1-bff9f2dd1052" //ok
-	//imgUrl := "http://woda-app-public.oss-cn-shanghai.aliyuncs.com/zxx/WorkCard/5681028c-b0e2-4397-be1c-18ce13ede8a5" //no
-	//imgUrl := "http://woda-app-public.oss-cn-shanghai.aliyuncs.com/zxx/WorkCard/C93D1621-369D-45C2-AA52-1A9E03DAFF92.jpg" //no
-	//imgUrl := "http://woda-app-public.oss-cn-shanghai.aliyuncs.com/zxx/WorkCard/2b9996a9-ab85-41b2-bdc5-e071a8c9c9f6" //ok
+// 视觉模型
+func Test_ImageUrl_shijue(t *testing.T) {
+	//imgUrl := "http://woda-app-public.oss-cn-shanghai.aliyuncs.com/zxx/WorkCard/288bd33f-cf57-4fe4-8be1-bff9f2dd1052" //ok
+	imgUrl := "http://woda-app-public.oss-cn-shanghai.aliyuncs.com/zxx/WorkCard/87239957-5cf5-4ea2-9770-177225443650" //ok
 	kimi := &KiMiAi{}
 	kimi.InitKiMiAi(apiKey, model, temperature)
 	base64Image, _ := imageToBase64(imgUrl)
@@ -126,4 +125,82 @@ func Test_ImageUrl(t *testing.T) {
 	}
 	workNumber := contentSplit[1]
 	fmt.Println(workNumber)
+}
+
+// ocr模型
+func Test_ImageUrl_ocr(t *testing.T) {
+	imageUrl := "http://woda-app-public.oss-cn-shanghai.aliyuncs.com/zxx/WorkCard/87239957-5cf5-4ea2-9770-177225443650" //ok
+	modelOcr := "moonshot-v1-8k"
+	kimiSdkOcr := &KiMiAi{}
+	kimiSdkOcr.InitKiMiAi(apiKey, modelOcr, temperature)
+	cInfo := &FileCreate{}
+	retryCount := 5 //重试次数
+
+	cInfo, err := kimiSdkOcr.CreateFileUrl(imageUrl, retryCount)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer func() {
+		//删除文件，每次请求将消耗每分的钟RPM。每个账号最多上传1000个文件。所以必须删除操作
+		_, _ = kimiSdkOcr.DeleteFile(cInfo.Id)
+	}()
+
+	fileContent, err := kimiSdkOcr.GetFileContent(cInfo.Id, retryCount)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	messages := []map[string]interface{}{
+		{
+			"role":    "system",
+			"content": "你是一个非常有经验的职员，你可以根据自己的经验从文本中提取工号，工号的特征为字母+数组组合，在4～10位数以内",
+		},
+		{
+			"role":    "system",
+			"content": fileContent.Content,
+		},
+		{"role": "user", "content": "帮我从文字中提取工号,以workNumber=形式输出"},
+	}
+	chatData, err := kimiSdkOcr.Chat(messages, retryCount)
+	if err != nil {
+		fmt.Println("没有找到工号")
+		return
+	}
+
+	if len(chatData.Choices) == 0 {
+		fmt.Println("没有找到工号")
+		return
+	}
+	content := chatData.Choices[0].Message.Content
+	contentSplit := strings.SplitN(content, "=", 2)
+	if len(contentSplit) < 2 {
+		fmt.Println("没有找到工号")
+		return
+	}
+	if len(contentSplit[0]) > 11 {
+		fmt.Println("没有找到工号")
+		return
+	}
+
+	workNumber := contentSplit[1]
+	if len(workNumber) <= 3 {
+		fmt.Println("没有找到工号")
+		return
+	}
+	if containsChinese(workNumber) {
+		fmt.Println("没有找到工号")
+		return
+	}
+
+	fmt.Println(workNumber)
+}
+func containsChinese(s string) bool {
+	for _, r := range s {
+		if unicode.Is(unicode.Han, r) {
+			return true
+		}
+	}
+	return false
 }
