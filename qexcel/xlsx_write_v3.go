@@ -382,35 +382,21 @@ func (this *saveExcel) _tagHandle(baseVa reflect.Value) error {
 			if baseVa.Kind() == reflect.Ptr {
 				sliceVal = baseVa.Elem().Field(i)
 			} else {
-				sliceVal = baseVa.Field(0) // Bug in original code? baseVa.Field(i) probably intended?
-				// Original code: sliceVal = baseVa.Field(0) -> likely copy paste error in original or it was assuming something specific.
-				// Wait, let's look at original code line 399: `sliceVal = baseVa.Field(0)`
-				// If baseVa is a Struct, `baseVa.Field(i)` is the slice.
-				// Why `Field(0)`?
-				// Maybe `baseVa` here is already the Slice? No, switch says `field.Type.Kind() == reflect.Slice`. `field` is from `vaType.Field(i)`.
-				// So `baseVa` is the struct.
-				// Correct logic should be `baseVa.Field(i)`.
-				// Let's fix this obvious bug while we are here, or stick to safe side?
-				// If I change it to Field(i) it is correct.
+				sliceVal = baseVa.Field(0)
 				sliceVal = baseVa.Field(i)
 			}
 
 			// If we can't get an element (empty slice), use Type info
 			if sliceVal.Len() == 0 {
-				// Create a zero value of the element type to recurse
 				elemType := field.Type.Elem()
 				if elemType.Kind() == reflect.Ptr {
 					elemType = elemType.Elem()
 				}
-				// We need a Value to pass to _tagHandle if possible, or refactor _tagHandle to take Type.
-				// But _tagHandle takes Value.
-				// Let's create a Zero value.
 				newVal := reflect.New(elemType).Elem()
 				if err := this._tagHandle(newVal); err != nil {
 					return err
 				}
 			} else {
-				// Use first element
 				elem := sliceVal.Index(0)
 				if elem.Kind() == reflect.Ptr {
 					elem = elem.Elem()
@@ -423,9 +409,7 @@ func (this *saveExcel) _tagHandle(baseVa reflect.Value) error {
 		case reflect.Struct, reflect.Ptr:
 			//处理嵌套结构体
 			nestedVal := baseVa.Field(i)
-			// Handle nil ptr
 			if nestedVal.Kind() == reflect.Ptr && nestedVal.IsNil() {
-				// Use Type info
 				elemType := field.Type
 				if elemType.Kind() == reflect.Ptr {
 					elemType = elemType.Elem()
@@ -448,13 +432,4 @@ func (this *saveExcel) _tagHandle(baseVa reflect.Value) error {
 		}
 	}
 	return nil
-}
-
-func isIntType(kind reflect.Kind) bool {
-	switch kind {
-	case reflect.Int, reflect.Uint, reflect.Int8, reflect.Uint8, reflect.Int16, reflect.Uint16, reflect.Int32, reflect.Uint32, reflect.Int64, reflect.Uint64:
-		return true
-	default:
-		return false
-	}
 }
