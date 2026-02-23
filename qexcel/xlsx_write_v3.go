@@ -2,19 +2,13 @@ package qexcel
 
 import (
 	"fmt"
+	"reflect"
+	"strings"
+
 	"github.com/360EntSecGroup-Skylar/excelize"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/spf13/cast"
-	"reflect"
-	"strings"
 )
-
-/*
-XlsxWriteV3 写入xlsx
-支持合并单元格--v3兼容v1,V2
-v2只支持1层嵌套，只支持excel一层合并。v3支持无级嵌套，无级合并
-结构体类型支持指针和非指针
-*/
 
 type tag struct {
 	Title     string            //标题
@@ -30,10 +24,7 @@ type tag struct {
 type saveExcel struct {
 	f         *excelize.File
 	tagMap    map[string]*tag
-	mergeMap  map[string][][2]int //合并单元格map{"A":[[1,4],[7,10]]}
 	sheetName string
-	row       int
-	addRow    bool
 }
 
 func initExcel(f *excelize.File, sheetName string) *saveExcel {
@@ -48,16 +39,13 @@ func initExcel(f *excelize.File, sheetName string) *saveExcel {
 	s := &saveExcel{
 		f:         f,
 		tagMap:    map[string]*tag{},
-		mergeMap:  map[string][][2]int{},
 		sheetName: sheetName,
-		row:       2,
-		addRow:    false,
 	}
 	return s
 }
 
 /*
-XlsxWriteV3 写入xlsx
+XlsxWrite 写入xlsx
 style:样式
 
 	wrap_text:true //自动换行
@@ -73,7 +61,7 @@ column:所属列
 IsMerge:true 开启单元格自动合并
 enum:枚举值
 */
-func XlsxWriteV3(f *excelize.File, data interface{}, sheetName string, savePath string, isSaveFile bool) (f2 *excelize.File, err error) {
+func XlsxWrite(f *excelize.File, data interface{}, sheetName string, savePath string, isSaveFile bool) (f2 *excelize.File, err error) {
 	defer func() {
 		if e := recover(); e != nil {
 			err = fmt.Errorf("panic occurred: %v", e)
@@ -116,18 +104,22 @@ func XlsxWriteV3(f *excelize.File, data interface{}, sheetName string, savePath 
 		this.f.SetColWidth(this.sheetName, v.Column, v.Column, v.Width)
 	}
 
-	//3.写入数据
-	this.WriteDate(dataList)
+	//3.写入数据 (Layout & Render)
+	currentRow := 2
+	for _, data := range dataList {
+		val := reflect.ValueOf(data)
+		height := this.calcHeight(val)
+		this.renderItem(val, currentRow, height)
+		currentRow += height
+	}
 
-	//4.处理合并单元格
-	this.MergeCell(dataList)
-	//5.处理样式
-	err = this.SetStyle()
+	//4.处理样式
+	err = this.SetStyle(currentRow - 1)
 	if err != nil {
 		return nil, err
 	}
 
-	//6.保存文件
+	//5.保存文件
 	if isSaveFile {
 		if err = this.f.SaveAs(savePath); err != nil {
 			return nil, err
@@ -136,140 +128,129 @@ func XlsxWriteV3(f *excelize.File, data interface{}, sheetName string, savePath 
 	return this.f, nil
 }
 
-// MergeCell 合并单元格
-func (this *saveExcel) MergeCell(dataList []interface{}) {
-	this.SetMergeMap2(dataList)
-	for column, mergeL := range this.mergeMap {
-		for _, merge := range mergeL {
-			rowSta := fmt.Sprintf("%s%d", column, merge[0])
-			rowEnd := fmt.Sprintf("%s%d", column, merge[1])
-			this.f.MergeCell(this.sheetName, rowSta, rowEnd)
+// calcHeight 计算节点高度
+func (this *saveExcel) calcHeight(v reflect.Value) int {
+	v = indirect(v)
+	if v.Kind() != reflect.Struct {
+		return 1
+	}
+
+	maxHeight := 1
+	for i := 0; i < v.NumField(); i++ {
+		fieldVal := indirect(v.Field(i))
+		kind := fieldVal.Kind()
+
+		if kind == reflect.Slice {
+			sliceH := 0
+			for k := 0; k < fieldVal.Len(); k++ {
+				sliceH += this.calcHeight(fieldVal.Index(k))
+			}
+			// 如果切片为空，至少占一行，除非它没有任何展示内容？
+			// 通常如果切片为空，我们希望显示父级字段，所以至少为1。
+			// 如果切片有内容，sum(children)
+			if sliceH == 0 {
+				sliceH = 1
+			}
+			if sliceH > maxHeight {
+				maxHeight = sliceH
+			}
+		} else if kind == reflect.Struct {
+			// 嵌套结构体（非Slice），它与当前结构体在同一行开始，
+			// 其高度由其内部最复杂的字段决定。
+			// 父结构体高度必须能容纳子结构体。
+			h := this.calcHeight(fieldVal)
+			if h > maxHeight {
+				maxHeight = h
+			}
+		}
+	}
+	return maxHeight
+}
+
+// renderItem 渲染节点
+func (this *saveExcel) renderItem(v reflect.Value, startRow int, height int) {
+	v = indirect(v)
+	if v.Kind() != reflect.Struct {
+		return
+	}
+
+	t := v.Type()
+	for i := 0; i < v.NumField(); i++ {
+		field := t.Field(i)
+		val := v.Field(i)
+
+		// Case 1: Slice
+		if val.Kind() == reflect.Slice {
+			curr := startRow
+			// 如果slice为空，我们需要跳过渲染子项，但是父项如果已经渲染了，这里不需要做额外操作。
+			// 只有当父项高度由其他字段撑大时，这里留空。
+			for k := 0; k < val.Len(); k++ {
+				item := val.Index(k)
+				h := this.calcHeight(item)
+				this.renderItem(item, curr, h)
+				curr += h
+			}
+			continue
+		}
+
+		// Case 2: Nested Struct (not slice)
+		// 需要处理指针指向struct的情况
+		indirectVal := indirect(val)
+		if indirectVal.Kind() == reflect.Struct {
+			this.renderItem(indirectVal, startRow, height)
+			continue
+		}
+
+		// Case 3: Basic Field (Leaf)
+		// 只有在tagMap中存在的字段才写入
+		tag, ok := this.tagMap[field.Name]
+		if ok {
+			this.writeCell(tag, val, startRow)
+			// Merge
+			if tag.IsMerge && height > 1 {
+				this.merge(tag.Column, startRow, startRow+height-1)
+			}
 		}
 	}
 }
-func (this *saveExcel) SetMergeMap(data interface{}) {
-	mergeMap := make(map[string][]int)
-	mergeMap2 := make(map[string][][2]int)
-	val := reflect.ValueOf(data)
-	if val.Kind() != reflect.Slice {
-		return
-	}
-	// 遍历每一行数据
-	for i := 0; i < val.Len(); i++ {
-		item := val.Index(i).Interface()
-		itemVal := reflect.ValueOf(item)
-		if itemVal.Kind() == reflect.Ptr {
-			itemVal = itemVal.Elem()
-		}
 
-		// 获取 FriendList 的长度
-		friendList := itemVal.FieldByName("FriendList")
-		friendCount := 0
-		if friendList.IsValid() && friendList.Kind() == reflect.Slice {
-			friendCount = friendList.Len()
-		}
-
-		// 处理每个列
-		for _, tagInfo := range this.tagMap {
-			if !tagInfo.IsMerge {
-				continue
-			}
-			column := tagInfo.Column
-			if friendCount > 0 {
-				mergeMap[column] = append(mergeMap[column], friendCount)
-			} else {
-				mergeMap[column] = append(mergeMap[column], 1)
-			}
+func (this *saveExcel) writeCell(tagInfo *tag, val reflect.Value, row int) {
+	fileValue := val.Interface()
+	if tagInfo.isEnum {
+		f := fmt.Sprintf("%v", fileValue)
+		v, ok2 := tagInfo.Enum[f]
+		if ok2 {
+			fileValue = v
+		} else {
+			fileValue = "未知"
 		}
 	}
-	for column, li := range mergeMap {
-		index := 2
-		for _, v := range li {
-			sta := index
-			end := v + index - 1
-			mergeMap2[column] = append(mergeMap2[column], [2]int{sta, end})
-			index = end + 1
-		}
-	}
-	this.mergeMap = mergeMap2
+	pos := fmt.Sprintf("%s%d", tagInfo.Column, row)
+	this.f.SetCellValue(this.sheetName, pos, fileValue)
 }
 
-func (this *saveExcel) SetMergeMap2(data interface{}) {
-	mergeMap := make(map[string][]int)
-	mergeMap2 := make(map[string][][2]int)
-	val := reflect.ValueOf(data)
-	if val.Kind() != reflect.Slice {
-		return
-	}
-	if val.Len() == 0 {
-		return
-	}
+func (this *saveExcel) merge(column string, start, end int) {
+	rowSta := fmt.Sprintf("%s%d", column, start)
+	rowEnd := fmt.Sprintf("%s%d", column, end)
+	this.f.MergeCell(this.sheetName, rowSta, rowEnd)
+}
 
-	// 获取第一个元素的类型信息
-	firstItem := val.Index(0).Interface()
-	firstItemVal := reflect.ValueOf(firstItem)
-	if firstItemVal.Kind() == reflect.Ptr {
-		firstItemVal = firstItemVal.Elem()
+func indirect(v reflect.Value) reflect.Value {
+	if v.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			// 如果是nil指针，返回一个零值的Struct以便继续遍历类型信息?
+			// 不，如果是nil，我们无法获取值。但是我们需要获取类型来做Tag解析吗？
+			// Tag解析在tagHandle已经做完了。
+			// 这里是渲染阶段。如果值为nil，就无法渲染其子字段。
+			return v // Keep as Ptr so we can check IsNil if needed, or handle above
+		}
+		return v.Elem()
 	}
-	firstItemType := firstItemVal.Type()
-
-	// 动态查找切片字段
-	sliceFieldNameList := make([]string, 0)
-	for i := 0; i < firstItemType.NumField(); i++ {
-		field := firstItemType.Field(i)
-		if field.Type.Kind() == reflect.Slice {
-			sliceFieldNameList = append(sliceFieldNameList, field.Name)
-		}
-	}
-
-	// 处理每一行数据
-	for i := 0; i < val.Len(); i++ {
-		item := val.Index(i).Interface()
-		itemVal := reflect.ValueOf(item)
-		if itemVal.Kind() == reflect.Ptr {
-			itemVal = itemVal.Elem()
-		}
-
-		// 动态获取切片字段的长度
-		count := 0
-		for _, sliceFieldName := range sliceFieldNameList {
-			sliceField := itemVal.FieldByName(sliceFieldName)
-			if sliceField.IsValid() && sliceField.Kind() == reflect.Slice {
-				countPre := sliceField.Len()
-				if countPre > count {
-					count = countPre
-				}
-			}
-		}
-
-		// 处理每个列
-		for _, tagInfo := range this.tagMap {
-			if !tagInfo.IsMerge {
-				continue
-			}
-			column := tagInfo.Column
-			if count > 0 {
-				mergeMap[column] = append(mergeMap[column], count)
-			} else {
-				mergeMap[column] = append(mergeMap[column], 1)
-			}
-		}
-	}
-	for column, li := range mergeMap {
-		index := 2
-		for _, v := range li {
-			sta := index
-			end := v + index - 1
-			mergeMap2[column] = append(mergeMap2[column], [2]int{sta, end})
-			index = end + 1
-		}
-	}
-	this.mergeMap = mergeMap2
-	return
+	return v
 }
 
 // SetStyle 设置样式
-func (this *saveExcel) SetStyle() error {
+func (this *saveExcel) SetStyle(maxRow int) error {
 	// 设置单元格的样式
 	//设置列样式
 	for _, v := range this.tagMap {
@@ -282,7 +263,7 @@ func (this *saveExcel) SetStyle() error {
 			return err
 		}
 		startCell := fmt.Sprintf("%s1", v.Column)
-		endCell := fmt.Sprintf("%s%d", v.Column, this.row)
+		endCell := fmt.Sprintf("%s%d", v.Column, maxRow)
 		this.f.SetCellStyle(this.sheetName, startCell, endCell, style)
 	}
 
@@ -300,6 +281,9 @@ func (this *saveExcel) SetStyle() error {
 
 // tagHandle 标签处理
 func (this *saveExcel) tagHandle(dataList []interface{}) error {
+	if len(dataList) == 0 {
+		return nil
+	}
 	baseVa := reflect.ValueOf(dataList[0])
 	if err := this._tagHandle(baseVa); err != nil {
 		return err
@@ -382,7 +366,7 @@ func (this *saveExcel) _tagHandle(baseVa reflect.Value) error {
 	} else {
 		vaType = baseVa.Type()
 	}
-start:
+
 	if vaType.Kind() == reflect.Ptr {
 		vaType = vaType.Elem()
 	}
@@ -392,24 +376,46 @@ start:
 		switch field.Type.Kind() {
 		case reflect.Slice:
 			//处理数组
+			// 为了获取slice内部元素的类型，我们需要一个实例，或者直接从Type获取Elem
+			// 原有代码尝试从实例获取，如果slice为空，从Type获取
 			var sliceVal reflect.Value
 			if baseVa.Kind() == reflect.Ptr {
 				sliceVal = baseVa.Elem().Field(i)
 			} else {
-				sliceVal = baseVa.Field(0)
+				sliceVal = baseVa.Field(0) // Bug in original code? baseVa.Field(i) probably intended?
+				// Original code: sliceVal = baseVa.Field(0) -> likely copy paste error in original or it was assuming something specific.
+				// Wait, let's look at original code line 399: `sliceVal = baseVa.Field(0)`
+				// If baseVa is a Struct, `baseVa.Field(i)` is the slice.
+				// Why `Field(0)`?
+				// Maybe `baseVa` here is already the Slice? No, switch says `field.Type.Kind() == reflect.Slice`. `field` is from `vaType.Field(i)`.
+				// So `baseVa` is the struct.
+				// Correct logic should be `baseVa.Field(i)`.
+				// Let's fix this obvious bug while we are here, or stick to safe side?
+				// If I change it to Field(i) it is correct.
+				sliceVal = baseVa.Field(i)
 			}
 
-			le := sliceVal.Len()
-			if le == 0 {
-				vaType = field.Type.Elem()
-				goto start
-			} else {
-				baseVa = sliceVal.Index(0)
-				if baseVa.Kind() == reflect.Ptr {
-					baseVa = baseVa.Elem()
+			// If we can't get an element (empty slice), use Type info
+			if sliceVal.Len() == 0 {
+				// Create a zero value of the element type to recurse
+				elemType := field.Type.Elem()
+				if elemType.Kind() == reflect.Ptr {
+					elemType = elemType.Elem()
 				}
-				err := this._tagHandle(baseVa)
-				if err != nil {
+				// We need a Value to pass to _tagHandle if possible, or refactor _tagHandle to take Type.
+				// But _tagHandle takes Value.
+				// Let's create a Zero value.
+				newVal := reflect.New(elemType).Elem()
+				if err := this._tagHandle(newVal); err != nil {
+					return err
+				}
+			} else {
+				// Use first element
+				elem := sliceVal.Index(0)
+				if elem.Kind() == reflect.Ptr {
+					elem = elem.Elem()
+				}
+				if err := this._tagHandle(elem); err != nil {
 					return err
 				}
 			}
@@ -417,9 +423,22 @@ start:
 		case reflect.Struct, reflect.Ptr:
 			//处理嵌套结构体
 			nestedVal := baseVa.Field(i)
-			err := this._tagHandle(nestedVal)
-			if err != nil {
-				return err
+			// Handle nil ptr
+			if nestedVal.Kind() == reflect.Ptr && nestedVal.IsNil() {
+				// Use Type info
+				elemType := field.Type
+				if elemType.Kind() == reflect.Ptr {
+					elemType = elemType.Elem()
+				}
+				newVal := reflect.New(elemType).Elem()
+				if err := this._tagHandle(newVal); err != nil {
+					return err
+				}
+			} else {
+				err := this._tagHandle(nestedVal)
+				if err != nil {
+					return err
+				}
 			}
 		default:
 			err := this.fieldHandle(field)
@@ -429,94 +448,6 @@ start:
 		}
 	}
 	return nil
-}
-
-func (this *saveExcel) WriteDate(dataList []interface{}) {
-	for index, data := range dataList {
-		var va reflect.Value
-		baseDataVa := reflect.ValueOf(data)
-		if baseDataVa.Kind() == reflect.Ptr {
-			va = baseDataVa.Elem()
-		} else {
-			va = baseDataVa
-		}
-		vaTyp := va.Type()
-		titleCount := va.NumField()
-		for i := 0; i < titleCount; i++ {
-			field := vaTyp.Field(i)
-			vaField := va.Field(i)
-			elemSliceObj := reflect.Value{}
-			if baseDataVa.Kind() == reflect.Ptr {
-				//子结构为指针
-				elemSliceObj = baseDataVa.Elem().Field(i)
-			} else {
-				//子结构为非指针
-				elemSliceObj = baseDataVa.Field(i)
-			}
-			this.writeExcel(field, elemSliceObj, vaField)
-		}
-		if index != len(dataList)-1 {
-			this.row++
-		}
-	}
-}
-
-func (this *saveExcel) writeExcel(field reflect.StructField, elemSliceObj, vaField reflect.Value) {
-	if field.Type.Kind() == reflect.Slice {
-		// 子结构体数组
-		elemSliceCount := 0
-		if elemSliceObj.Kind() != reflect.Slice {
-			fileValue := vaField.Interface()
-			arrayValue := reflect.ValueOf(fileValue)
-			elemSliceCount = arrayValue.Len()
-			elemSliceObj = arrayValue
-			this.addRow = false
-		} else {
-			elemSliceCount = elemSliceObj.Len()
-		}
-		for x := 0; x < elemSliceCount; x++ {
-			elemObj := elemSliceObj.Index(x)
-			if elemObj.Kind() == reflect.Ptr {
-				elemObj = elemObj.Elem()
-			}
-			k := elemObj.NumField()
-			for i := 0; i < k; i++ {
-				field2 := elemObj.Type().Field(i)
-				vaField2 := elemObj.Field(i)
-				this.writeExcel(field2, elemObj, vaField2)
-			}
-			this.addRow = true
-		}
-		this.addRow = false
-	} else {
-		if this.write(field, vaField) {
-			this.addRow = false
-		}
-	}
-}
-
-func (this *saveExcel) write(field reflect.StructField, vaField reflect.Value) bool {
-	fileValue := vaField.Interface()
-	fieldName := field.Name
-	tagInfo, ok := this.tagMap[fieldName]
-	if !ok {
-		return false
-	}
-	if this.addRow {
-		this.row++
-	}
-	if tagInfo.isEnum {
-		f := fmt.Sprintf("%v", fileValue)
-		v, ok2 := tagInfo.Enum[f]
-		if ok2 {
-			fileValue = v
-		} else {
-			fileValue = "未知"
-		}
-	}
-	pos := fmt.Sprintf("%s%d", tagInfo.Column, this.row)
-	this.f.SetCellValue(this.sheetName, pos, fileValue)
-	return true
 }
 
 func isIntType(kind reflect.Kind) bool {

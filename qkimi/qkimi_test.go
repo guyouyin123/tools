@@ -16,6 +16,14 @@ var (
 	temperature = float32(0.1)
 )
 
+func Test_UsersMeBalance(t *testing.T) {
+	kimi := &KiMiAi{}
+	kimi.InitKiMiAi(apiKey, model, temperature)
+	a, err := kimi.UsersMeBalance()
+	fmt.Println(a)
+	fmt.Println(err)
+}
+
 func Test_ImagePath(t *testing.T) {
 	//从图片中提取信息
 	kimi := &KiMiAi{}
