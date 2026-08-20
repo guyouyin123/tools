@@ -137,7 +137,8 @@ func Test_ImageUrl_shijue(t *testing.T) {
 
 // ocr模型
 func Test_ImageUrl_ocr(t *testing.T) {
-	imageUrl := "http://woda-app-public.oss-cn-shanghai.aliyuncs.com/zxx/WorkCard/87239957-5cf5-4ea2-9770-177225443650" //ok
+	//imageUrl := "http://woda-app-public.oss-cn-shanghai.aliyuncs.com/zxx/WorkCard/87239957-5cf5-4ea2-9770-177225443650" //ok
+	imageUrl := "http://woda-app-public.oss-cn-shanghai.aliyuncs.com/zxx/WorkCard/9cd5a18b-098f-4bae-a3e8-10914cbd9ec8.jpg" //ok
 	modelOcr := "moonshot-v1-8k"
 	kimiSdkOcr := &KiMiAi{}
 	kimiSdkOcr.InitKiMiAi(apiKey, modelOcr, temperature)

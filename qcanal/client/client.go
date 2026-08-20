@@ -58,6 +58,7 @@ func printEntry(entries []protocolEntry.Entry) {
 		}
 		// RowChange对象，包含了一行数据变化的所有特征
 		rowChange := new(protocolEntry.RowChange)
+
 		// protobuf解析
 		err := proto.Unmarshal(entry.GetStoreValue(), rowChange)
 		if err != nil {
@@ -69,7 +70,6 @@ func printEntry(entries []protocolEntry.Entry) {
 
 		// 获取并打印Header信息
 		header := entry.GetHeader()
-
 		//过滤库名和表名
 		if !FilterMap(header) {
 			continue

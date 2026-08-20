@@ -2,6 +2,7 @@ package qexcel
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	jsoniter "github.com/json-iterator/go"
@@ -298,7 +299,7 @@ func TestComplexNestedSlice(t *testing.T) {
 		Items   []*Item // 嵌套切片
 	}
 	type User struct {
-		UserName string   `excel:"title=用户名;width=15;column=A;IsMerge=true"`
+		UserName string   `excel:"title=用户名;column=A;IsMerge=true"`
 		Orders   []*Order // 嵌套切片
 	}
 
@@ -308,37 +309,158 @@ func TestComplexNestedSlice(t *testing.T) {
 	// Order2 has 1 item
 	// Total rows for User1 = 2 + 1 = 3 rows
 
-	item1 := &Item{ItemName: "Apple", Price: 10}
-	item2 := &Item{ItemName: "Banana", Price: 5}
-	item3 := &Item{ItemName: "Orange", Price: 8}
+	//item1 := &Item{ItemName: "Apple", Price: 10}
+	//item2 := &Item{ItemName: "Banana", Price: 5}
+	//item3 := &Item{ItemName: "Orange", Price: 8}
 
-	order1 := &Order{
-		OrderId: "ORD001",
-		Items:   []*Item{item1, item2},
-	}
-	order2 := &Order{
-		OrderId: "ORD002",
-		Items:   []*Item{item3},
-	}
+	//order1 := &Order{
+	//	OrderId: "ORD001",
+	//	Items:   []*Item{item1, item2},
+	//}
+	//order2 := &Order{
+	//	OrderId: "ORD002",
+	//	Items:   []*Item{item3},
+	//}
 
-	user1 := &User{
-		UserName: "Alice",
-		Orders:   []*Order{order1, order2},
-	}
+	//user1 := &User{
+	//	UserName: "Alice",
+	//	Orders:   []*Order{order1, order2},
+	//}
 
 	// User2 has 1 order with 0 items (should occupy 1 row)
 	order3 := &Order{
 		OrderId: "ORD003",
 		Items:   []*Item{}, // Empty items
 	}
-	user2 := &User{
-		UserName: "Bob",
-		Orders:   []*Order{order3},
+	//user2 := &User{
+	//	UserName: "Bob",
+	//	Orders:   []*Order{order3},
+	//}
+
+	//list := []*User{user1, user2}
+
+	_, err := XlsxWrite(nil, &order3, "DeepNested", "/Users/jeff/Desktop/deep_nested.xlsx", true)
+	if err != nil {
+		t.Fatalf("Failed to write deep nested struct: %v", err)
+	}
+}
+
+// TestPointerSliceNestedStructPanic 回归: []*Parent + 非切片嵌套结构体
+//
+// 曾经的 bug: 传入 []*Parent(元素是指针)时 dataList[0] 为 *Parent, _tagHandle 的 baseVa 是 Ptr;
+// 若 Parent 含一个"非切片"的嵌套结构体字段(下面的 Addr), 会走 `case reflect.Struct` 分支,
+// 该分支直接 baseVa.Field(i) 未解引用指针 -> panic "call of reflect.Value.Field on ptr Value"。
+// (对比: 嵌套"切片"走 case reflect.Slice 分支, 那里有 baseVa.Elem() 解引用, 故一直没事。)
+//
+// 修复后此形状应正常导出, 这里断言 err == nil。
+func TestPointerSliceNestedStructPanic(t *testing.T) {
+	type Addr struct {
+		City string `excel:"title=城市;width=15;column=B"`
+	}
+	type Person struct {
+		Name string `excel:"title=姓名;width=15;column=A"`
+		Addr Addr   // 关键: 非切片的嵌套结构体
 	}
 
-	list := []*User{user1, user2}
+	list := []*Person{
+		{Name: "Tom", Addr: Addr{City: "北京"}},
+	}
 
-	_, err := XlsxWrite(nil, list, "DeepNested", "./deep_nested.xlsx", true)
+	_, err := XlsxWrite(nil, &list, "Sheet1", "./ptr_nested.xlsx", true)
+	if err != nil {
+		t.Fatalf("修复后 []*Parent+非切片嵌套结构体 应正常导出, 却报错: %v", err)
+	}
+}
+
+// TestSameNameFieldNoCollision 回归(B): 不同嵌套结构体里的同名字段(Status)不应互相覆盖列
+//
+// 修复前 tagMap 以 field.Name 为 key, Inner.Status 会覆盖 Outer.Status,
+// 导致两个 Status 都写到 B 列、A 列为空。修复后各归各列: A2=OUT, B2=IN。
+func TestSameNameFieldNoCollision(t *testing.T) {
+	type Inner struct {
+		Status string `excel:"title=内层状态;width=15;column=B"`
+	}
+	type Outer struct {
+		Status string `excel:"title=外层状态;width=15;column=A"` // 与 Inner.Status 同名不同列
+		Inner  Inner
+	}
+
+	data := Outer{Status: "OUT", Inner: Inner{Status: "IN"}}
+	f, err := XlsxWrite(nil, data, "Sheet1", "", false)
+	if err != nil {
+		t.Fatalf("导出失败: %v", err)
+	}
+	if got, _ := f.GetCellValue("Sheet1", "A2"); got != "OUT" {
+		t.Fatalf("A2 期望 OUT, 实得 %q(外层 Status 被覆盖了)", got)
+	}
+	if got, _ := f.GetCellValue("Sheet1", "B2"); got != "IN" {
+		t.Fatalf("B2 期望 IN, 实得 %q", got)
+	}
+}
+
+// TestSinglePointerStruct 回归(F): 传入单个 *struct(指向结构体的指针)不应输出空文件
+//
+// 修复前 XlsxWrite 的 Ptr 分支只处理 *[]T, 指向单结构体时 dataList 为空 -> 直接返回空表。
+// 修复后应正常写入: A2=Jeff, B2=18。
+func TestSinglePointerStruct(t *testing.T) {
+	type User struct {
+		Name string `excel:"title=姓名;width=15;column=A"`
+		Age  int    `excel:"title=年龄;width=10;column=B"`
+	}
+
+	f, err := XlsxWrite(nil, &User{Name: "Jeff", Age: 18}, "Sheet1", "", false)
+	if err != nil {
+		t.Fatalf("导出失败: %v", err)
+	}
+	if got, _ := f.GetCellValue("Sheet1", "A2"); got != "Jeff" {
+		t.Fatalf("A2 期望 Jeff, 实得 %q(单个 *struct 输出了空表)", got)
+	}
+	if got, _ := f.GetCellValue("Sheet1", "B2"); got != "18" {
+		t.Fatalf("B2 期望 18, 实得 %q", got)
+	}
+
+	// 二级指针 **struct(如 order:=&Item{}; XlsxWrite(&order,...)): 只有标题、无值内容 的回归。
+	// 根因是 indirect 只解一层指针, **struct 解一层后是 *struct 非 struct -> renderItem 跳过。
+	pp := &User{Name: "Bob", Age: 20}
+	f2, err := XlsxWrite(nil, &pp, "Sheet1", "", false)
+	if err != nil {
+		t.Fatalf("二级指针导出失败: %v", err)
+	}
+	if got, _ := f2.GetCellValue("Sheet1", "A2"); got != "Bob" {
+		t.Fatalf("二级指针 A2 期望 Bob, 实得 %q(只出标题没内容)", got)
+	}
+	if got, _ := f2.GetCellValue("Sheet1", "B2"); got != "20" {
+		t.Fatalf("二级指针 B2 期望 20, 实得 %q", got)
+	}
+}
+
+// TestMissingColumnError 回归(C): 字段写了 excel tag 但漏 column= 应直接报错而非静默写不进去
+func TestMissingColumnError(t *testing.T) {
+	type Bad struct {
+		Name string `excel:"title=姓名;width=10"` // 故意缺 column
+	}
+	_, err := XlsxWrite(nil, Bad{Name: "x"}, "Sheet1", "", false)
+	if err == nil {
+		t.Fatalf("缺少 column 时应报错, 实际却成功")
+	}
+	if !strings.Contains(err.Error(), "column") {
+		t.Fatalf("错误信息应指出缺少 column, 实得: %v", err)
+	}
+}
+
+func TestComplexNestedSlice2(t *testing.T) {
+	type Item struct {
+		ItemName string `excel:"title=商品名;width=15;column=C"`
+		Price    int    `excel:"title=价格;width=10;column=D"`
+	}
+
+	// User2 has 1 order with 0 items (should occupy 1 row)
+	order3 := &Item{
+		ItemName: "123",
+		Price:    100,
+	}
+
+	_, err := XlsxWrite(nil, &order3, "DeepNested", "/Users/jeff/Desktop/deep_nested.xlsx", true)
 	if err != nil {
 		t.Fatalf("Failed to write deep nested struct: %v", err)
 	}

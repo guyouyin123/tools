@@ -1,14 +1,25 @@
 package qexcel
 
+// 本文件是 XlsxWrite(见 xlsx_write_v2.go)的共享底座: tag 解析、布局高度计算、反射解引用等,
+// 均与具体 excelize 版本无关。旧的 XlsxWrite(基于 excelize v1)已删除, 统一用 XlsxWrite 替代。
+
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 
-	"github.com/360EntSecGroup-Skylar/excelize"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/spf13/cast"
+	"github.com/xuri/excelize/v2"
 )
+
+// cellRef 拼单元格坐标(如 "A"+2 -> "A2")。
+// 替代逐格 fmt.Sprintf("%s%d",...): 几十万行×多列会调用上百万次, Sprintf 的反射+格式化开销可观。
+func cellRef(col string, row int) string {
+	return col + strconv.Itoa(row)
+}
 
 type tag struct {
 	Title     string            //标题
@@ -21,111 +32,16 @@ type tag struct {
 	IsMerge   bool              //是否合并单元格
 }
 
+// fieldKey 唯一标识一个字段: 用「所属结构体类型 + 字段名」联合做 key,
+// 避免不同嵌套结构体里的同名字段(如两个结构体都有 Status)在 tagMap 里互相覆盖。
+type fieldKey struct {
+	owner reflect.Type
+	name  string
+}
+
+// saveExcel 承载一次导出的字段 tag 映射(由 tagHandle 填充), 供布局高度计算复用。
 type saveExcel struct {
-	f         *excelize.File
-	tagMap    map[string]*tag
-	sheetName string
-}
-
-func initExcel(f *excelize.File, sheetName string) *saveExcel {
-	if f == nil {
-		f = excelize.NewFile()
-	}
-	index := f.NewSheet(sheetName)
-	if sheetName != "Sheet1" {
-		f.DeleteSheet("Sheet1")
-	}
-	f.SetActiveSheet(index)
-	s := &saveExcel{
-		f:         f,
-		tagMap:    map[string]*tag{},
-		sheetName: sheetName,
-	}
-	return s
-}
-
-/*
-XlsxWrite 写入xlsx
-style:样式
-
-	wrap_text:true //自动换行
-	vertical:"top" //垂直对齐方式
-	horizontal:"center" //居中对齐方式
-	indent:1 //缩进
-	shrink_to_fit:false //不缩小字体填充
-	text_rotation:0 //文本旋转角度
-
-title:标题
-width:列宽
-column:所属列
-IsMerge:true 开启单元格自动合并
-enum:枚举值
-*/
-func XlsxWrite(f *excelize.File, data interface{}, sheetName string, savePath string, isSaveFile bool) (f2 *excelize.File, err error) {
-	defer func() {
-		if e := recover(); e != nil {
-			err = fmt.Errorf("panic occurred: %v", e)
-			return
-		}
-	}()
-
-	dataList := make([]interface{}, 0)
-	t := reflect.TypeOf(data)
-	if t.Kind() == reflect.Ptr {
-		t = t.Elem()
-		v := reflect.ValueOf(data).Elem()
-		if v.Kind() == reflect.Slice {
-			for i := 0; i < v.Len(); i++ {
-				dataList = append(dataList, v.Index(i).Interface())
-			}
-		}
-	} else if t.Kind() == reflect.Slice {
-		v := reflect.ValueOf(data)
-		for i := 0; i < v.Len(); i++ {
-			dataList = append(dataList, v.Index(i).Interface())
-		}
-	} else {
-		dataList = append(dataList, data)
-	}
-
-	this := initExcel(f, sheetName)
-	if len(dataList) == 0 {
-		return f, nil
-	}
-
-	//1.处理tag标签
-	err = this.tagHandle(dataList)
-	if err != nil {
-		return nil, err
-	}
-	//2.处理title
-	for _, v := range this.tagMap {
-		this.f.SetCellValue(this.sheetName, fmt.Sprintf("%s%d", v.Column, 1), v.Title)
-		this.f.SetColWidth(this.sheetName, v.Column, v.Column, v.Width)
-	}
-
-	//3.写入数据 (Layout & Render)
-	currentRow := 2
-	for _, data := range dataList {
-		val := reflect.ValueOf(data)
-		height := this.calcHeight(val)
-		this.renderItem(val, currentRow, height)
-		currentRow += height
-	}
-
-	//4.处理样式
-	err = this.SetStyle(currentRow - 1)
-	if err != nil {
-		return nil, err
-	}
-
-	//5.保存文件
-	if isSaveFile {
-		if err = this.f.SaveAs(savePath); err != nil {
-			return nil, err
-		}
-	}
-	return this.f, nil
+	tagMap map[fieldKey]*tag
 }
 
 // calcHeight 计算节点高度
@@ -167,116 +83,17 @@ func (this *saveExcel) calcHeight(v reflect.Value) int {
 	return maxHeight
 }
 
-// renderItem 渲染节点
-func (this *saveExcel) renderItem(v reflect.Value, startRow int, height int) {
-	v = indirect(v)
-	if v.Kind() != reflect.Struct {
-		return
-	}
-
-	t := v.Type()
-	for i := 0; i < v.NumField(); i++ {
-		field := t.Field(i)
-		val := v.Field(i)
-
-		// Case 1: Slice
-		if val.Kind() == reflect.Slice {
-			curr := startRow
-			// 如果slice为空，我们需要跳过渲染子项，但是父项如果已经渲染了，这里不需要做额外操作。
-			// 只有当父项高度由其他字段撑大时，这里留空。
-			for k := 0; k < val.Len(); k++ {
-				item := val.Index(k)
-				h := this.calcHeight(item)
-				this.renderItem(item, curr, h)
-				curr += h
-			}
-			continue
-		}
-
-		// Case 2: Nested Struct (not slice)
-		// 需要处理指针指向struct的情况
-		indirectVal := indirect(val)
-		if indirectVal.Kind() == reflect.Struct {
-			this.renderItem(indirectVal, startRow, height)
-			continue
-		}
-
-		// Case 3: Basic Field (Leaf)
-		// 只有在tagMap中存在的字段才写入
-		tag, ok := this.tagMap[field.Name]
-		if ok {
-			this.writeCell(tag, val, startRow)
-			// Merge
-			if tag.IsMerge && height > 1 {
-				this.merge(tag.Column, startRow, startRow+height-1)
-			}
-		}
-	}
-}
-
-func (this *saveExcel) writeCell(tagInfo *tag, val reflect.Value, row int) {
-	fileValue := val.Interface()
-	if tagInfo.isEnum {
-		f := fmt.Sprintf("%v", fileValue)
-		v, ok2 := tagInfo.Enum[f]
-		if ok2 {
-			fileValue = v
-		} else {
-			fileValue = "未知"
-		}
-	}
-	pos := fmt.Sprintf("%s%d", tagInfo.Column, row)
-	this.f.SetCellValue(this.sheetName, pos, fileValue)
-}
-
-func (this *saveExcel) merge(column string, start, end int) {
-	rowSta := fmt.Sprintf("%s%d", column, start)
-	rowEnd := fmt.Sprintf("%s%d", column, end)
-	this.f.MergeCell(this.sheetName, rowSta, rowEnd)
-}
-
+// indirect 循环解引用到非指针为止(支持 *T、**T 等任意层级指针)。
+// 只解一层的话, 传入 **Struct 时会停在 *Struct(非 struct), 导致 renderItem 直接跳过、只出标题无内容。
+// 遇到 nil 指针则原样返回该指针(渲染阶段无法再取其子字段)。
 func indirect(v reflect.Value) reflect.Value {
-	if v.Kind() == reflect.Ptr {
+	for v.Kind() == reflect.Ptr {
 		if v.IsNil() {
-			// 如果是nil指针，返回一个零值的Struct以便继续遍历类型信息?
-			// 不，如果是nil，我们无法获取值。但是我们需要获取类型来做Tag解析吗？
-			// Tag解析在tagHandle已经做完了。
-			// 这里是渲染阶段。如果值为nil，就无法渲染其子字段。
-			return v // Keep as Ptr so we can check IsNil if needed, or handle above
+			return v
 		}
-		return v.Elem()
+		v = v.Elem()
 	}
 	return v
-}
-
-// SetStyle 设置样式
-func (this *saveExcel) SetStyle(maxRow int) error {
-	// 设置单元格的样式
-	//设置列样式
-	for _, v := range this.tagMap {
-		styleStr := this.tagMap[v.FieldName].Style
-		if len(styleStr) == 0 {
-			continue
-		}
-		style, err := this.f.NewStyle(styleStr)
-		if err != nil {
-			return err
-		}
-		startCell := fmt.Sprintf("%s1", v.Column)
-		endCell := fmt.Sprintf("%s%d", v.Column, maxRow)
-		this.f.SetCellStyle(this.sheetName, startCell, endCell, style)
-	}
-
-	//设置标题加粗
-	style2, err := this.f.NewStyle(`{"alignment":{"horizontal":"center","vertical":"center"},"font": {"bold": true}}`)
-	if err != nil {
-		return err
-	}
-	for _, v := range this.tagMap {
-		title := fmt.Sprintf("%s1", v.Column)
-		this.f.SetCellStyle(this.sheetName, title, title, style2)
-	}
-	return nil
 }
 
 // tagHandle 标签处理
@@ -300,8 +117,12 @@ type ExcelTag struct {
 	IsMerge bool
 }
 
+// defaultColWidth tag 未写 width 时的默认列宽(避免 SetColWidth(0) 把整列压成隐藏)
+const defaultColWidth = 20.0
+
 func parseExcelTag(s string) ExcelTag {
 	tagInfo := ExcelTag{}
+	hasWidth := false
 	pairs := strings.Split(s, ";")
 	for _, pair := range pairs {
 		kv := strings.SplitN(pair, "=", 2)
@@ -316,6 +137,7 @@ func parseExcelTag(s string) ExcelTag {
 			tagInfo.Title = value
 		case "width":
 			tagInfo.Width = cast.ToFloat64(value)
+			hasWidth = true
 		case "column":
 			tagInfo.Column = value
 		case "style":
@@ -328,15 +150,22 @@ func parseExcelTag(s string) ExcelTag {
 			}
 		}
 	}
+	if !hasWidth {
+		tagInfo.Width = defaultColWidth
+	}
 	return tagInfo
 }
 
-func (this *saveExcel) fieldHandle(field reflect.StructField) error {
+func (this *saveExcel) fieldHandle(owner reflect.Type, field reflect.StructField) error {
 	s := field.Tag.Get("excel")
 	if s == "" {
 		return nil
 	}
 	tagInfo := parseExcelTag(s)
+	// column 是写入定位的必要信息, 缺失会导致非法单元格引用而静默写不进去, 这里直接报错。
+	if tagInfo.Column == "" {
+		return fmt.Errorf("字段 %s.%s 的 excel tag 缺少 column", owner.Name(), field.Name)
+	}
 	dic := map[string]string{}
 	isEnum := false
 	if len(tagInfo.Enum) > 0 {
@@ -355,81 +184,402 @@ func (this *saveExcel) fieldHandle(field reflect.StructField) error {
 		Style:     tagInfo.Style,
 		IsMerge:   tagInfo.IsMerge,
 	}
-	this.tagMap[field.Name] = t
+	this.tagMap[fieldKey{owner: owner, name: field.Name}] = t
 	return nil
 }
 
 func (this *saveExcel) _tagHandle(baseVa reflect.Value) error {
-	var vaType reflect.Type
-	if baseVa.Kind() == reflect.Ptr {
-		vaType = baseVa.Type().Elem()
-	} else {
-		vaType = baseVa.Type()
+	// 先把 baseVa 完整解引用到具体结构体值(支持 *T / **T ... 任意层级指针),
+	// nil 指针则用元素类型的零值实例代替, 以便仍能按"类型"解析出 tag。
+	// 这样下面各分支统一用 baseVa.Field(i), 不必再逐处处理指针(否则多级指针会 panic)。
+	baseVa = derefToStruct(baseVa)
+	if baseVa.Kind() != reflect.Struct {
+		return nil
 	}
 
-	if vaType.Kind() == reflect.Ptr {
-		vaType = vaType.Elem()
-	}
+	vaType := baseVa.Type()
 	numField := vaType.NumField()
 	for i := 0; i < numField; i++ {
 		field := vaType.Field(i)
 		switch field.Type.Kind() {
 		case reflect.Slice:
-			//处理数组
-			// 为了获取slice内部元素的类型，我们需要一个实例，或者直接从Type获取Elem
-			// 原有代码尝试从实例获取，如果slice为空，从Type获取
-			var sliceVal reflect.Value
-			if baseVa.Kind() == reflect.Ptr {
-				sliceVal = baseVa.Elem().Field(i)
+			// 切片视为"子记录集合": 有元素就取第 0 个, 空切片则用元素类型零值实例, 都递归解析。
+			sliceVal := baseVa.Field(i)
+			var elem reflect.Value
+			if sliceVal.Len() > 0 {
+				elem = sliceVal.Index(0)
 			} else {
-				sliceVal = baseVa.Field(0)
-				sliceVal = baseVa.Field(i)
+				elem = reflect.New(field.Type.Elem()).Elem()
 			}
-
-			// If we can't get an element (empty slice), use Type info
-			if sliceVal.Len() == 0 {
-				elemType := field.Type.Elem()
-				if elemType.Kind() == reflect.Ptr {
-					elemType = elemType.Elem()
-				}
-				newVal := reflect.New(elemType).Elem()
-				if err := this._tagHandle(newVal); err != nil {
-					return err
-				}
-			} else {
-				elem := sliceVal.Index(0)
-				if elem.Kind() == reflect.Ptr {
-					elem = elem.Elem()
-				}
-				if err := this._tagHandle(elem); err != nil {
-					return err
-				}
+			if err := this._tagHandle(elem); err != nil {
+				return err
 			}
-
 		case reflect.Struct, reflect.Ptr:
-			//处理嵌套结构体
-			nestedVal := baseVa.Field(i)
-			if nestedVal.Kind() == reflect.Ptr && nestedVal.IsNil() {
-				elemType := field.Type
-				if elemType.Kind() == reflect.Ptr {
-					elemType = elemType.Elem()
-				}
-				newVal := reflect.New(elemType).Elem()
-				if err := this._tagHandle(newVal); err != nil {
-					return err
-				}
-			} else {
-				err := this._tagHandle(nestedVal)
-				if err != nil {
-					return err
-				}
+			//处理嵌套结构体(nil 指针在递归入口用零值实例兜底)
+			if err := this._tagHandle(baseVa.Field(i)); err != nil {
+				return err
 			}
 		default:
-			err := this.fieldHandle(field)
-			if err != nil {
+			if err := this.fieldHandle(vaType, field); err != nil {
 				return err
 			}
 		}
 	}
 	return nil
+}
+
+// derefToStruct 把值解引用到非指针为止; 途中遇到 nil 指针, 用其元素类型的零值实例继续,
+// 保证最终能拿到一个可 .Field() 的具体值(用于按类型解析 tag)。
+func derefToStruct(v reflect.Value) reflect.Value {
+	for v.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			v = reflect.New(v.Type().Elem()).Elem()
+			continue
+		}
+		v = v.Elem()
+	}
+	return v
+}
+
+// XlsxWrite 是 XlsxWrite 的高性能版: 基于 excelize/v2 的 StreamWriter 顺序流式写入,
+// 面向几十万行大数据 —— 边写边刷、不在内存里建整棵单元格树, 耗时与内存都远低于 v1 的
+// 全内存 SetCellValue 模型。入参与 XlsxWrite 对齐: 首个 f *excelize.File 可传入(为 nil 则新建),
+// 用于往已有工作簿里追加一个新 sheet。
+//
+// 与 v1 (XlsxWrite) 的差异:
+//   - 依赖 github.com/xuri/excelize/v2, 传入/返回的 *excelize.File 都是 v2 类型(与 v1 的不通用)。
+//   - tag 解析 / 布局高度 / 合并单元格 / 枚举映射 与 v1 完全一致(复用同一套逻辑);
+//     tag 里的 style JSON 串也兼容(内部做 snake_case -> excelize.Style 的显式转换)。
+//
+// StreamWriter 固有约束: 行必须自上而下、每行恰好写一次, 且目标 sheet 在流式写入前应为空。
+// 因为本包的嵌套布局里父级单元格要跨子行合并(不是天然按行产生), 所以内部先把整表渲染进"行矩阵",
+// 再按行号递增顺序 SetRow 吐出。若传入已有文件, 请确保 sheetName 是一个新的/空的 sheet。
+func XlsxWrite(f *excelize.File, data interface{}, sheetName, savePath string, isSaveFile bool) (f2 *excelize.File, err error) {
+	defer func() {
+		if e := recover(); e != nil {
+			err = fmt.Errorf("panic occurred: %v", e)
+		}
+	}()
+
+	// 1. 摊平入参为一维数据列表(指针/切片/单值均可, 与 v1 同义)
+	dataList := flattenData(data)
+	if len(dataList) == 0 {
+		if f, err = prepareSheet(f, sheetName); err != nil {
+			return nil, err
+		}
+		if isSaveFile {
+			if err = f.SaveAs(savePath); err != nil {
+				return nil, err
+			}
+		}
+		return f, nil
+	}
+
+	// 2. 解析 tag(复用 v1 的 saveExcel.tagHandle, 它只用反射、不碰 excelize 文件)
+	//    放在动文件之前: tag 出错(如缺 column)时直接返回, 不污染传入的 *File。
+	s := &saveExcel{tagMap: map[fieldKey]*tag{}}
+	if err = s.tagHandle(dataList); err != nil {
+		return nil, err
+	}
+	if len(s.tagMap) == 0 {
+		return nil, fmt.Errorf("没有可导出的字段: 结构体上没有任何 excel tag")
+	}
+
+	// 3. 列字母 -> 1based 序号, 并求最大列(行矩阵按最大列定宽)
+	colIdx := make(map[string]int, len(s.tagMap))
+	maxCol := 0
+	for _, tg := range s.tagMap {
+		ci, e := excelize.ColumnNameToNumber(tg.Column)
+		if e != nil {
+			return nil, fmt.Errorf("非法列名 %q: %w", tg.Column, e)
+		}
+		colIdx[tg.Column] = ci
+		if ci > maxCol {
+			maxCol = ci
+		}
+	}
+
+	// 4. 先算每条数据高度(用于给行矩阵定尺寸), 再把值渲染进矩阵
+	heights := make([]int, len(dataList))
+	totalRows := 0
+	for i, d := range dataList {
+		h := s.calcHeight(reflect.ValueOf(d))
+		heights[i] = h
+		totalRows += h
+	}
+	gridRows := 1 + totalRows // 第 1 行为表头
+	g := &gridWriter{tagMap: s.tagMap, s: s, colIdx: colIdx, grid: make([][]interface{}, gridRows)}
+	for i := range g.grid {
+		g.grid[i] = make([]interface{}, maxCol)
+	}
+	for _, tg := range s.tagMap { // 表头
+		g.grid[0][colIdx[tg.Column]-1] = tg.Title
+	}
+	cur := 2 // 数据从第 2 行起
+	for i, d := range dataList {
+		g.render(reflect.ValueOf(d), cur, -1)
+		cur += heights[i]
+	}
+
+	// 5. 准备文件与目标 sheet(可传入已有 *File 追加; nil 则新建), 再流式写出
+	if f, err = prepareSheet(f, sheetName); err != nil {
+		return nil, err
+	}
+	sw, e := f.NewStreamWriter(sheetName)
+	if e != nil {
+		return nil, e
+	}
+
+	// 5a. 列宽 + 预建样式(SetColWidth 必须在 SetRow 之前; 样式只 NewStyle 一次后复用)
+	headerStyle, e := f.NewStyle(&excelize.Style{
+		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
+		Font:      &excelize.Font{Bold: true},
+	})
+	if e != nil {
+		return nil, e
+	}
+	colStyle := make([]int, maxCol+1) // 1based 列 -> styleID(0 表示无列样式)
+	for _, tg := range s.tagMap {
+		ci := colIdx[tg.Column]
+		if e = sw.SetColWidth(ci, ci, tg.Width); e != nil {
+			return nil, e
+		}
+		if tg.Style != "" {
+			st, e2 := parseStyleJSON(tg.Style)
+			if e2 != nil {
+				return nil, fmt.Errorf("列 %s 样式解析失败: %w", tg.Column, e2)
+			}
+			id, e3 := f.NewStyle(st)
+			if e3 != nil {
+				return nil, e3
+			}
+			colStyle[ci] = id
+		}
+	}
+
+	// 5b. 逐行 SetRow(StreamWriter 要求行号递增、一次一整行; 用 Cell 携带样式)
+	for r := 1; r <= gridRows; r++ {
+		rowVals := make([]interface{}, maxCol)
+		for c := 0; c < maxCol; c++ {
+			style := colStyle[c+1]
+			if r == 1 {
+				style = headerStyle // 表头用加粗居中样式
+			}
+			rowVals[c] = excelize.Cell{StyleID: style, Value: g.grid[r-1][c]}
+		}
+		if e = sw.SetRow(cellRef("A", r), rowVals); e != nil {
+			return nil, e
+		}
+	}
+
+	// 5c. 合并单元格(值已落在块首行, 被合并掉的下方单元格为空)
+	for _, m := range g.merges {
+		if e = sw.MergeCell(cellRef(m.col, m.start), cellRef(m.col, m.end)); e != nil {
+			return nil, e
+		}
+	}
+
+	if e = sw.Flush(); e != nil {
+		return nil, e
+	}
+
+	// 6. 保存
+	if isSaveFile {
+		if err = f.SaveAs(savePath); err != nil {
+			return nil, err
+		}
+	}
+	return f, nil
+}
+
+// prepareSheet 准备输出文件与目标 sheet: f 为 nil 则新建; 确保 sheetName 存在并设为激活 sheet;
+// 仅当文件是自己新建的、且目标非默认 Sheet1 时, 删掉 NewFile 自带的空 Sheet1(传入的已有文件不动其 Sheet1)。
+func prepareSheet(f *excelize.File, sheetName string) (*excelize.File, error) {
+	created := false
+	if f == nil {
+		f = excelize.NewFile()
+		created = true
+	}
+	if _, err := f.NewSheet(sheetName); err != nil { // 已存在则返回其索引, 不存在则新建
+		return nil, err
+	}
+	if created && sheetName != "Sheet1" {
+		if err := f.DeleteSheet("Sheet1"); err != nil {
+			return nil, err
+		}
+	}
+	if idx, err := f.GetSheetIndex(sheetName); err == nil { // 删表后索引会变, 重新取一次
+		f.SetActiveSheet(idx)
+	}
+	return f, nil
+}
+
+// flattenData 把入参摊平成一维数据列表: *[]T / []T / *T / T 皆可(与 v1 XlsxWrite 的分支同义)。
+func flattenData(data interface{}) []interface{} {
+	t := reflect.TypeOf(data)
+	if t == nil {
+		return nil
+	}
+	switch t.Kind() {
+	case reflect.Ptr:
+		v := reflect.ValueOf(data).Elem()
+		if v.Kind() == reflect.Slice {
+			out := make([]interface{}, 0, v.Len())
+			for i := 0; i < v.Len(); i++ {
+				out = append(out, v.Index(i).Interface())
+			}
+			return out
+		}
+		return []interface{}{data}
+	case reflect.Slice:
+		v := reflect.ValueOf(data)
+		out := make([]interface{}, 0, v.Len())
+		for i := 0; i < v.Len(); i++ {
+			out = append(out, v.Index(i).Interface())
+		}
+		return out
+	default:
+		return []interface{}{data}
+	}
+}
+
+// gridMerge 记录一次待合并区间(同列的 start..end 行)。
+type gridMerge struct {
+	col        string
+	start, end int
+}
+
+// gridWriter 把嵌套结构体渲染进行矩阵 grid, 逻辑与 v1 的 renderItem 一致, 只是不直接写文件。
+type gridWriter struct {
+	tagMap map[fieldKey]*tag
+	s      *saveExcel
+	colIdx map[string]int
+	grid   [][]interface{} // grid[r-1][c-1] = excel 第 r 行第 c 列的值
+	merges []gridMerge
+}
+
+// render 从 startRow 起渲染 v, 返回本节点占用的固有高度。语义同 xlsx_write.go 的 renderItem。
+func (g *gridWriter) render(v reflect.Value, startRow, mergeHeight int) int {
+	v = indirect(v)
+	if v.Kind() != reflect.Struct {
+		return 1
+	}
+	t := v.Type()
+	n := v.NumField()
+
+	// 第一遍: 渲染切片子记录(递归返回高度累加), 算出本节点固有高度
+	height := 1
+	for i := 0; i < n; i++ {
+		val := v.Field(i)
+		if val.Kind() == reflect.Slice {
+			curr := startRow
+			for k := 0; k < val.Len(); k++ {
+				curr += g.render(val.Index(k), curr, -1)
+			}
+			if span := curr - startRow; span > height {
+				height = span
+			}
+			continue
+		}
+		if iv := indirect(val); iv.Kind() == reflect.Struct {
+			if h := g.s.calcHeight(iv); h > height {
+				height = h
+			}
+		}
+	}
+	if mergeHeight <= 0 {
+		mergeHeight = height
+	}
+
+	// 第二遍: 写叶子(按 mergeHeight 记录合并)与非切片嵌套结构体(共用父块高)
+	for i := 0; i < n; i++ {
+		field := t.Field(i)
+		val := v.Field(i)
+		if val.Kind() == reflect.Slice {
+			continue
+		}
+		if iv := indirect(val); iv.Kind() == reflect.Struct {
+			g.render(iv, startRow, mergeHeight)
+			continue
+		}
+		if tg, ok := g.tagMap[fieldKey{owner: t, name: field.Name}]; ok {
+			g.setCell(tg, val, startRow)
+			if tg.IsMerge && mergeHeight > 1 {
+				g.merges = append(g.merges, gridMerge{tg.Column, startRow, startRow + mergeHeight - 1})
+			}
+		}
+	}
+	return height
+}
+
+func (g *gridWriter) setCell(tg *tag, val reflect.Value, row int) {
+	v := val.Interface()
+	if tg.isEnum {
+		key := fmt.Sprintf("%v", v)
+		if mapped, ok := tg.Enum[key]; ok {
+			v = mapped
+		} else {
+			v = "未知"
+		}
+	}
+	g.grid[row-1][g.colIdx[tg.Column]-1] = v
+}
+
+// parseStyleJSON 把 v1 风格的样式 JSON(snake_case 键)转成 excelize/v2 的 *Style。
+// v2 的 Style/Alignment/Font 结构体没有 json tag 且字段为驼峰, 直接 json.Unmarshal 会漏掉
+// wrap_text / text_rotation / shrink_to_fit 这类下划线键, 故此处用带 json tag 的中间结构显式映射。
+func parseStyleJSON(s string) (*excelize.Style, error) {
+	var raw struct {
+		Alignment *struct {
+			Horizontal   string `json:"horizontal"`
+			Vertical     string `json:"vertical"`
+			WrapText     bool   `json:"wrap_text"`
+			TextRotation int    `json:"text_rotation"`
+			Indent       int    `json:"indent"`
+			ShrinkToFit  bool   `json:"shrink_to_fit"`
+		} `json:"alignment"`
+		Font *struct {
+			Bold   bool    `json:"bold"`
+			Italic bool    `json:"italic"`
+			Color  string  `json:"color"`
+			Size   float64 `json:"size"`
+			Family string  `json:"family"`
+		} `json:"font"`
+		Fill *struct {
+			Type    string   `json:"type"`
+			Pattern int      `json:"pattern"`
+			Color   []string `json:"color"`
+		} `json:"fill"`
+	}
+	if err := json.Unmarshal([]byte(s), &raw); err != nil {
+		return nil, err
+	}
+	st := &excelize.Style{}
+	if a := raw.Alignment; a != nil {
+		st.Alignment = &excelize.Alignment{
+			Horizontal:   a.Horizontal,
+			Vertical:     a.Vertical,
+			WrapText:     a.WrapText,
+			TextRotation: a.TextRotation,
+			Indent:       a.Indent,
+			ShrinkToFit:  a.ShrinkToFit,
+		}
+	}
+	if fo := raw.Font; fo != nil {
+		st.Font = &excelize.Font{
+			Bold:   fo.Bold,
+			Italic: fo.Italic,
+			Color:  fo.Color,
+			Size:   fo.Size,
+			Family: fo.Family,
+		}
+	}
+	if fi := raw.Fill; fi != nil {
+		st.Fill = excelize.Fill{
+			Type:    fi.Type,
+			Pattern: fi.Pattern,
+			Color:   fi.Color,
+		}
+	}
+	return st, nil
 }
